@@ -2,9 +2,17 @@ interface Env {
   TRAKT_CLIENT_ID: string;
   TRAKT_USERNAME: string;
   TRAKT_ACCESS_TOKEN?: string;
+  TRAKT_CLIENT_SECRET?: string;
+  TRAKT_REFRESH_TOKEN?: string;
   TMDB_API_KEY?: string;
   ALLOWED_ORIGIN?: string;
 }
+
+type TokenCache = {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAtMs: number;
+};
 
 type TraktIds = {
   trakt?: number;
@@ -68,7 +76,11 @@ class TraktRequestError extends Error {
 }
 
 const TRAKT_API_URL = 'https://api.trakt.tv';
+const TRAKT_TOKEN_URL = 'https://api.trakt.tv/oauth/token';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w342';
+const TOKEN_EXPIRY_BUFFER_MS = 30_000;
+
+let tokenCache: TokenCache | null = null;
 
 const parseAllowedOrigins = (value?: string) =>
   (value || '')
@@ -116,15 +128,60 @@ const json = (body: unknown, status: number, origin: string) =>
     },
   });
 
-const traktHeaders = (env: Env) => {
+const getAccessToken = async (env: Env) => {
+  if (env.TRAKT_ACCESS_TOKEN) return env.TRAKT_ACCESS_TOKEN;
+  if (!env.TRAKT_CLIENT_SECRET || !env.TRAKT_REFRESH_TOKEN) return '';
+
+  if (tokenCache && Date.now() < tokenCache.expiresAtMs - TOKEN_EXPIRY_BUFFER_MS) {
+    return tokenCache.accessToken;
+  }
+
+  const response = await fetch(TRAKT_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      refresh_token: tokenCache?.refreshToken || env.TRAKT_REFRESH_TOKEN,
+      client_id: env.TRAKT_CLIENT_ID,
+      client_secret: env.TRAKT_CLIENT_SECRET,
+      redirect_uri: 'urn:ietf:wg:oauth:2.0:oob',
+      grant_type: 'refresh_token',
+    }),
+  });
+
+  if (!response.ok) throw new TraktRequestError(response.status);
+
+  const data = (await response.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+  };
+
+  if (!data.access_token) throw new Error('missing trakt access token');
+
+  const expiresInSeconds = Number(data.expires_in);
+  const ttlMs = Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
+    ? expiresInSeconds * 1000
+    : 7_776_000_000;
+
+  tokenCache = {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || tokenCache?.refreshToken || env.TRAKT_REFRESH_TOKEN,
+    expiresAtMs: Date.now() + ttlMs,
+  };
+
+  return data.access_token;
+};
+
+const traktHeaders = async (env: Env) => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'trakt-api-version': '2',
     'trakt-api-key': env.TRAKT_CLIENT_ID,
   };
 
-  if (env.TRAKT_ACCESS_TOKEN) {
-    headers.Authorization = `Bearer ${env.TRAKT_ACCESS_TOKEN}`;
+  const accessToken = await getAccessToken(env);
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
   }
 
   return headers;
@@ -132,7 +189,7 @@ const traktHeaders = (env: Env) => {
 
 const fetchTrakt = async <T>(path: string, env: Env) => {
   const response = await fetch(`${TRAKT_API_URL}${path}`, {
-    headers: traktHeaders(env),
+    headers: await traktHeaders(env),
   });
 
   if (response.status === 204 || response.status === 404) return null;
