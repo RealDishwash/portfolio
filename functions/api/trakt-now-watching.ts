@@ -58,6 +58,15 @@ type FunctionContext = {
   env: Env;
 };
 
+class TraktRequestError extends Error {
+  status: number;
+
+  constructor(status: number) {
+    super(`trakt request failed: ${status}`);
+    this.status = status;
+  }
+}
+
 const TRAKT_API_URL = 'https://api.trakt.tv';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w342';
 
@@ -127,7 +136,7 @@ const fetchTrakt = async <T>(path: string, env: Env) => {
   });
 
   if (response.status === 204 || response.status === 404) return null;
-  if (!response.ok) throw new Error(`trakt request failed: ${response.status}`);
+  if (!response.ok) throw new TraktRequestError(response.status);
   return (await response.json()) as T;
 };
 
@@ -260,6 +269,10 @@ export const onRequest = async (context: FunctionContext) => {
     );
   } catch (error) {
     console.error('trakt-now-watching function failed', error);
+    if (error instanceof TraktRequestError) {
+      return json({ error: 'trakt_request_failed', status: error.status }, 502, origin);
+    }
+
     return json({ error: 'trakt_unavailable' }, 502, origin);
   }
 };
