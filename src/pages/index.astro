@@ -2,11 +2,13 @@
 import Layout from '../layouts/Layout.astro';
 import CurrentConditionsController from '../components/CurrentConditionsController';
 import SpotifyNowPlayingController from '../components/SpotifyNowPlayingController';
+import TraktNowWatchingController from '../components/TraktNowWatchingController';
 import HeroTile from '../components/HeroTile.astro';
 import EngineeringSnapshotTile from '../components/EngineeringSnapshotTile.astro';
 import CurrentConditionsTile from '../components/CurrentConditionsTile.astro';
 import StatusTile from '../components/StatusTile.astro';
 import SpotifyTile from '../components/SpotifyTile.astro';
+import TraktTile from '../components/TraktTile.astro';
 import TerminalTile from '../components/TerminalTile.astro';
 import SignatureTile from '../components/SignatureTile.astro';
 import profilePhoto from '../assets/profile-photo.png';
@@ -42,11 +44,13 @@ const tools = [
 			<CurrentConditionsTile />
 			<StatusTile />
 			<SpotifyTile spotifyPath={siSpotify.path} />
+			<TraktTile traktPath={siTrakt.path} />
 			<TerminalTile />
 			<SignatureTile />
 		</section>
 		<CurrentConditionsController client:load />
 		<SpotifyNowPlayingController client:load />
+		<TraktNowWatchingController client:load />
 	</main>
 </Layout>
 
@@ -376,7 +380,8 @@ const tools = [
 			grid-template-areas:
 				'about meta'
 				'about spotify'
-				'now terminal'
+				'now trakt'
+				'terminal terminal'
 				'signature signature';
 			align-items: stretch;
 		}
@@ -395,6 +400,10 @@ const tools = [
 
 		.cards > .spotify {
 			grid-area: spotify;
+		}
+
+		.cards > .trakt {
+			grid-area: trakt;
 		}
 
 		.cards > .signature {
@@ -625,13 +634,15 @@ const tools = [
 		}
 
 		.now-tile,
-		.spotify {
+		.spotify,
+		.trakt {
 			display: flex;
 			flex-direction: column;
 			gap: 0.68rem;
 		}
 
-		.spotify {
+		.spotify,
+		.trakt {
 			position: relative;
 		}
 
@@ -710,11 +721,29 @@ const tools = [
 			animation: liveBadgePulse 2.4s ease-in-out infinite;
 		}
 
+		.trakt[data-trakt-state='watching'] .spotify-state {
+			color: var(--success);
+			border-color: color-mix(in srgb, var(--success), var(--border) 45%);
+			box-shadow:
+				0 0 0.2rem rgb(39 201 63 / 26%),
+				0 0 0.7rem rgb(39 201 63 / 22%);
+			animation: liveBadgePulse 2.4s ease-in-out infinite;
+		}
+
 		.spotify[data-spotify-state='idle'] .spotify-state {
 			color: var(--text-soft);
 		}
 
+		.trakt[data-trakt-state='idle'] .spotify-state {
+			color: var(--text-soft);
+		}
+
 		.spotify[data-spotify-state='error'] .spotify-state {
+			color: var(--accent-soft);
+			border-color: color-mix(in srgb, var(--accent-soft), var(--border) 46%);
+		}
+
+		.trakt[data-trakt-state='error'] .spotify-state {
 			color: var(--accent-soft);
 			border-color: color-mix(in srgb, var(--accent-soft), var(--border) 46%);
 		}
@@ -767,7 +796,23 @@ const tools = [
 				transform 0.18s ease;
 		}
 
+		#trakt-art {
+			display: block;
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			transform-origin: center;
+			transition:
+				opacity 0.18s ease,
+				transform 0.18s ease;
+		}
+
 		#spotify-art.is-swapping {
+			opacity: 0.14;
+			transform: scale(0.97);
+		}
+
+		#trakt-art.is-swapping {
 			opacity: 0.14;
 			transform: scale(0.97);
 		}
@@ -1034,6 +1079,7 @@ const tools = [
 					'meta'
 					'now'
 					'spotify'
+					'trakt'
 					'terminal'
 					'signature';
 			}
@@ -1133,6 +1179,7 @@ const tools = [
 
 			.tile,
 			#spotify-art,
+			#trakt-art,
 			.spotify-meta,
 			.status-message {
 				transition: none;
@@ -1141,6 +1188,7 @@ const tools = [
 				.dot,
 				.terminal-cursor,
 				.spotify[data-spotify-state='playing'] .spotify-state,
+				.trakt[data-trakt-state='watching'] .spotify-state,
 				.spotify-state.is-state-bump {
 					animation: none;
 				}

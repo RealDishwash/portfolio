@@ -1,0 +1,50 @@
+---
+interface Props {
+  traktPath: string;
+}
+
+const { traktPath } = Astro.props;
+---
+
+<article class="tile spotify trakt" id="trakt-tile">
+  <div class="spotify-head">
+    <h2>Now Watching</h2>
+    <span class="spotify-state" id="trakt-state">Loading</span>
+  </div>
+  <div class="spotify-body">
+    <a
+      class="spotify-art-link"
+      data-trakt-link
+      href="https://trakt.tv/users/realdishwash"
+      target="_blank"
+      rel="noreferrer"
+      aria-label="Open on Trakt"
+    >
+      <img
+        id="trakt-art"
+        src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+        alt="Movie or show poster"
+        loading="lazy"
+        decoding="async"
+      />
+    </a>
+    <div class="spotify-meta" aria-live="polite">
+      <a
+        class="spotify-title"
+        id="trakt-title"
+        data-trakt-link
+        href="https://trakt.tv/users/realdishwash"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Checking Trakt...
+      </a>
+      <p class="spotify-artists" id="trakt-subtitle">Fetching your watch status.</p>
+    </div>
+  </div>
+  <span class="spotify-corner-link" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d={traktPath} fill="currentColor"></path>
+    </svg>
+  </span>
+</article>
