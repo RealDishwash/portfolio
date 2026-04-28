@@ -771,10 +771,14 @@ const tools = [
 			display: block;
 			width: 66px;
 			height: 66px;
-			border-radius: var(--radius-sm);
+			border-radius: 0;
 			border: 1px solid color-mix(in srgb, var(--accent), var(--border) 68%);
 			background: var(--tile-strong);
 			overflow: hidden;
+		}
+
+		.media-tile .spotify-art-link {
+			height: auto;
 		}
 
 		.spotify-art-link:hover {
@@ -795,8 +799,8 @@ const tools = [
 		#media-art {
 			display: block;
 			width: 100%;
-			height: 100%;
-			object-fit: cover;
+			height: auto;
+			object-fit: contain;
 			transform-origin: center;
 			transition:
 				opacity 0.18s ease,
@@ -1163,6 +1167,10 @@ const tools = [
 			.spotify-art-link {
 				width: 56px;
 				height: 56px;
+			}
+
+			.media-tile .spotify-art-link {
+				height: auto;
 			}
 		}
 
