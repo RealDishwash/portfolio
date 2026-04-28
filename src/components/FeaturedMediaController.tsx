@@ -1,39 +1,36 @@
 import { useEffect } from 'preact/hooks';
 
-type TraktNowWatchingPayload = {
-  isWatching: boolean;
+type FeaturedMediaPayload = {
   title: string;
   subtitle: string;
-  mediaType?: 'movie' | 'episode';
   imageUrl?: string;
-  traktUrl?: string;
+  tmdbUrl?: string;
 };
 
-type TraktViewState = {
-  traktState: 'loading' | 'error' | 'watching' | 'idle';
+type MediaViewState = {
+  mediaState: 'loading' | 'error' | 'selected';
   stateLabel: string;
   title: string;
   subtitle: string;
   imageUrl: string;
-  traktUrl: string;
+  tmdbUrl: string;
 };
 
-const DEFAULT_TRAKT_URL = 'https://trakt.tv/users/realdishwash';
-const POLL_INTERVAL_MS = 60_000;
-const ENDPOINT = '/api/trakt-now-watching';
+const DEFAULT_TMDB_URL = 'https://www.themoviedb.org/';
+const ENDPOINT = '/api/featured-media';
 const PLACEHOLDER_ART = `data:image/svg+xml,${encodeURIComponent(
   "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#1a1520'/><stop offset='1' stop-color='#0b111a'/></linearGradient></defs><rect width='64' height='64' fill='url(#g)'/><path d='M21 15h22a4 4 0 0 1 4 4v26a4 4 0 0 1-4 4H21a4 4 0 0 1-4-4V19a4 4 0 0 1 4-4Z' fill='none' stroke='#3b4558' stroke-width='2'/><path d='M27 25l13 7-13 7V25Z' fill='#3b4558'/></svg>"
 )}`;
 
-export default function TraktNowWatchingController() {
+export default function FeaturedMediaController() {
   useEffect(() => {
-    const tileNode = document.querySelector<HTMLElement>('#trakt-tile');
-    const stateNode = document.querySelector<HTMLElement>('#trakt-state');
-    const titleNode = document.querySelector<HTMLElement>('#trakt-title');
-    const subtitleNode = document.querySelector<HTMLElement>('#trakt-subtitle');
-    const metaNode = document.querySelector<HTMLElement>('#trakt-tile .spotify-meta');
-    const artNode = document.querySelector<HTMLImageElement>('#trakt-art');
-    const linkNodes = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-trakt-link]'));
+    const tileNode = document.querySelector<HTMLElement>('#media-tile');
+    const stateNode = document.querySelector<HTMLElement>('#media-state');
+    const titleNode = document.querySelector<HTMLElement>('#media-title');
+    const subtitleNode = document.querySelector<HTMLElement>('#media-subtitle');
+    const metaNode = document.querySelector<HTMLElement>('#media-tile .spotify-meta');
+    const artNode = document.querySelector<HTMLImageElement>('#media-art');
+    const linkNodes = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-media-link]'));
 
     if (!tileNode || !stateNode || !titleNode || !subtitleNode || !metaNode || !artNode || !linkNodes.length) {
       return;
@@ -52,20 +49,20 @@ export default function TraktNowWatchingController() {
       metaNode.classList.remove('is-swapping');
     };
 
-    const applyView = (viewState: TraktViewState) => {
-      tileNode.dataset.traktState = viewState.traktState;
+    const applyView = (viewState: MediaViewState) => {
+      tileNode.dataset.mediaState = viewState.mediaState;
       stateNode.textContent = viewState.stateLabel;
       titleNode.textContent = viewState.title;
       subtitleNode.textContent = viewState.subtitle;
       artNode.src = viewState.imageUrl;
-      applyLink(viewState.traktUrl);
+      applyLink(viewState.tmdbUrl);
     };
 
-    let lastViewState: TraktViewState | null = null;
+    let lastViewState: MediaViewState | null = null;
     let swapTimeoutId: number | undefined;
     let motionResetTimeoutId: number | undefined;
 
-    const setViewState = (nextViewState: TraktViewState) => {
+    const setViewState = (nextViewState: MediaViewState) => {
       const hasPrevious = Boolean(lastViewState);
       const stateChanged = lastViewState?.stateLabel !== nextViewState.stateLabel;
       const textChanged =
@@ -101,66 +98,56 @@ export default function TraktNowWatchingController() {
 
     const setLoading = () => {
       setViewState({
-        traktState: 'loading',
+        mediaState: 'loading',
         stateLabel: 'Loading',
-        title: 'Checking Trakt...',
-        subtitle: 'Fetching your watch status.',
+        title: 'Checking TMDB...',
+        subtitle: 'Fetching the selected title.',
         imageUrl: PLACEHOLDER_ART,
-        traktUrl: DEFAULT_TRAKT_URL,
+        tmdbUrl: DEFAULT_TMDB_URL,
       });
     };
 
     const setError = () => {
       setViewState({
-        traktState: 'error',
+        mediaState: 'error',
         stateLabel: 'Unavailable',
-        title: 'Trakt unavailable',
-        subtitle: 'Unable to load watch status right now.',
+        title: 'TMDB unavailable',
+        subtitle: 'Unable to load the selected title right now.',
         imageUrl: PLACEHOLDER_ART,
-        traktUrl: DEFAULT_TRAKT_URL,
+        tmdbUrl: DEFAULT_TMDB_URL,
       });
     };
 
-    const setNowWatching = (payload: TraktNowWatchingPayload) => {
+    const setFeaturedMedia = (payload: FeaturedMediaPayload) => {
       setViewState({
-        traktState: payload.isWatching ? 'watching' : 'idle',
-        stateLabel: payload.isWatching ? 'Live' : 'Last watched',
+        mediaState: 'selected',
+        stateLabel: 'Selected',
         title: payload.title || 'Unknown title',
-        subtitle: payload.subtitle || 'Unknown watch status',
+        subtitle: payload.subtitle || 'Movie or TV show',
         imageUrl: payload.imageUrl || PLACEHOLDER_ART,
-        traktUrl: payload.traktUrl || DEFAULT_TRAKT_URL,
+        tmdbUrl: payload.tmdbUrl || DEFAULT_TMDB_URL,
       });
     };
 
-    let isRequestInFlight = false;
     let destroyed = false;
 
-    const loadNowWatching = async () => {
-      if (isRequestInFlight || destroyed) return;
-      isRequestInFlight = true;
-
+    const loadFeaturedMedia = async () => {
       try {
         const response = await fetch(ENDPOINT, { headers: { Accept: 'application/json' } });
-        if (!response.ok) throw new Error('trakt request failed');
-        const payload = (await response.json()) as TraktNowWatchingPayload;
+        if (!response.ok) throw new Error('featured media request failed');
+        const payload = (await response.json()) as FeaturedMediaPayload;
         if (!payload || !payload.title || !payload.subtitle) throw new Error('invalid payload');
-        setNowWatching(payload);
+        if (!destroyed) setFeaturedMedia(payload);
       } catch {
-        setError();
-      } finally {
-        isRequestInFlight = false;
+        if (!destroyed) setError();
       }
     };
 
     setLoading();
-    void loadNowWatching();
-    const intervalId = window.setInterval(() => {
-      void loadNowWatching();
-    }, POLL_INTERVAL_MS);
+    void loadFeaturedMedia();
 
     return () => {
       destroyed = true;
-      window.clearInterval(intervalId);
       window.clearTimeout(swapTimeoutId);
       window.clearTimeout(motionResetTimeoutId);
     };

@@ -5,10 +5,10 @@ import type { ImageMetadata } from 'astro';
 interface Props {
   profilePhoto: ImageMetadata;
   githubPath: string;
-  traktPath: string;
+  mediaPath: string;
 }
 
-const { profilePhoto, githubPath, traktPath } = Astro.props;
+const { profilePhoto, githubPath, mediaPath } = Astro.props;
 ---
 
 <section class="tile hero">
@@ -40,11 +40,11 @@ const { profilePhoto, githubPath, traktPath } = Astro.props;
         </svg>
         <span>LinkedIn</span>
       </a>
-      <a class="secondary" href="https://trakt.tv/users/realdishwash" target="_blank" rel="noreferrer">
+      <a class="secondary" href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d={traktPath} fill="currentColor"></path>
+          <path d={mediaPath} fill="currentColor"></path>
         </svg>
-        <span>Trakt</span>
+        <span>TMDB</span>
       </a>
     </div>
   </div>
