@@ -1,3 +1,11 @@
+import {
+  corsHeaders,
+  isOriginAllowed,
+  json,
+  resolveAllowedOrigins,
+  resolveOrigin,
+} from '../_lib/http';
+
 interface Env {
   SPOTIFY_CLIENT_ID: string;
   SPOTIFY_CLIENT_SECRET: string;
@@ -35,85 +43,61 @@ type SpotifyNowPlayingPayload = {
 type FunctionContext = {
   request: Request;
   env: Env;
+  waitUntil: (promise: Promise<unknown>) => void;
 };
 
 const SPOTIFY_ACCOUNTS_URL = 'https://accounts.spotify.com/api/token';
 const SPOTIFY_CURRENTLY_PLAYING_URL = 'https://api.spotify.com/v1/me/player/currently-playing';
 const SPOTIFY_RECENTLY_PLAYED_URL = 'https://api.spotify.com/v1/me/player/recently-played?limit=1';
 const TOKEN_EXPIRY_BUFFER_MS = 30_000;
+const CACHE_CONTROL = 'public, max-age=10, s-maxage=10';
+// Synthetic URLs used only as caches.default keys; never actually fetched.
+const TOKEN_CACHE_KEY = 'https://portfolio-internal/spotify/access-token';
+const PAYLOAD_CACHE_KEY = 'https://portfolio-internal/spotify/now-playing';
 
+// Fast path only: isolates are recycled often, so the durable copy lives in caches.default.
 let tokenCache: TokenCache | null = null;
 
-const parseAllowedOrigins = (value?: string) =>
-  (value || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+const isTokenFresh = (token: TokenCache) =>
+  Date.now() < token.expiresAtMs - TOKEN_EXPIRY_BUFFER_MS;
 
-const resolveAllowedOrigins = (request: Request, allowedOrigin?: string) => {
-  const allowedOrigins = parseAllowedOrigins(allowedOrigin);
-  if (allowedOrigins.length > 0) return allowedOrigins;
-  return [new URL(request.url).origin];
-};
-
-const resolveOrigin = (request: Request, allowedOrigins: string[]) => {
-  const requestOrigin = request.headers.get('Origin');
-
-  if (allowedOrigins.includes('*')) return '*';
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) return requestOrigin;
-  return allowedOrigins[0];
-};
-
-const isOriginAllowed = (request: Request, allowedOrigins: string[]) => {
-  if (allowedOrigins.includes('*')) return true;
-  const requestOrigin = request.headers.get('Origin');
-  if (!requestOrigin) {
-    return allowedOrigins.includes(new URL(request.url).origin);
+const readPersistedToken = async (): Promise<TokenCache | null> => {
+  const cached = await caches.default.match(TOKEN_CACHE_KEY);
+  if (!cached) return null;
+  try {
+    const data = (await cached.json()) as Partial<TokenCache>;
+    if (typeof data.accessToken === 'string' && typeof data.expiresAtMs === 'number') {
+      return { accessToken: data.accessToken, expiresAtMs: data.expiresAtMs };
+    }
+  } catch {
+    // Corrupt entry; fall through and refresh.
   }
-  return allowedOrigins.includes(requestOrigin);
+  return null;
 };
 
-const corsHeaders = (origin: string) => ({
-  'Access-Control-Allow-Origin': origin,
-  'Access-Control-Allow-Methods': 'GET,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  Vary: 'Origin',
-});
-
-const json = (body: unknown, status: number, origin: string) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=10',
-      ...corsHeaders(origin),
-    },
-  });
-
-const toPayload = (track: SpotifyTrack, isPlaying: boolean): SpotifyNowPlayingPayload => {
-  const artists = (track.artists || [])
-    .map((artist) => artist.name)
-    .filter((name): name is string => Boolean(name))
-    .join(', ');
-
-  const albumImageUrl = (track.album?.images || [])
-    .map((image) => image.url)
-    .find((url): url is string => Boolean(url));
-
-  return {
-    isPlaying,
-    trackName: track.name || 'Unknown track',
-    artists: artists || 'Unknown artist',
-    albumName: track.album?.name || 'Unknown album',
-    albumImageUrl: albumImageUrl || '',
-    trackUrl: track.external_urls?.spotify || 'https://open.spotify.com',
-    lastUpdated: new Date().toISOString(),
-  };
+const persistToken = (token: TokenCache) => {
+  const ttlSeconds = Math.floor((token.expiresAtMs - Date.now()) / 1000);
+  if (ttlSeconds <= 0) return Promise.resolve();
+  return caches.default.put(
+    TOKEN_CACHE_KEY,
+    new Response(JSON.stringify(token), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': `max-age=${ttlSeconds}`,
+      },
+    })
+  );
 };
 
-const getAccessToken = async (env: Env) => {
-  if (tokenCache && Date.now() < tokenCache.expiresAtMs - TOKEN_EXPIRY_BUFFER_MS) {
+const getAccessToken = async (env: Env, waitUntil: FunctionContext['waitUntil']) => {
+  if (tokenCache && isTokenFresh(tokenCache)) {
     return tokenCache.accessToken;
+  }
+
+  const persisted = await readPersistedToken();
+  if (persisted && isTokenFresh(persisted)) {
+    tokenCache = persisted;
+    return persisted.accessToken;
   }
 
   const basicAuth = btoa(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`);
@@ -147,8 +131,30 @@ const getAccessToken = async (env: Env) => {
     accessToken: data.access_token,
     expiresAtMs: Date.now() + ttlMs,
   };
+  waitUntil(persistToken(tokenCache));
 
   return data.access_token;
+};
+
+const toPayload = (track: SpotifyTrack, isPlaying: boolean): SpotifyNowPlayingPayload => {
+  const artists = (track.artists || [])
+    .map((artist) => artist.name)
+    .filter((name): name is string => Boolean(name))
+    .join(', ');
+
+  const albumImageUrl = (track.album?.images || [])
+    .map((image) => image.url)
+    .find((url): url is string => Boolean(url));
+
+  return {
+    isPlaying,
+    trackName: track.name || 'Unknown track',
+    artists: artists || 'Unknown artist',
+    albumName: track.album?.name || 'Unknown album',
+    albumImageUrl: albumImageUrl || '',
+    trackUrl: track.external_urls?.spotify || 'https://open.spotify.com',
+    lastUpdated: new Date().toISOString(),
+  };
 };
 
 const getCurrentlyPlaying = async (accessToken: string) => {
@@ -184,8 +190,34 @@ const getRecentlyPlayed = async (accessToken: string) => {
   return toPayload(track, false);
 };
 
+const withCors = (cached: Response, origin: string) => {
+  const headers = new Headers(cached.headers);
+  for (const [key, value] of Object.entries(corsHeaders(origin))) {
+    headers.set(key, value);
+  }
+  return new Response(cached.body, { status: cached.status, headers });
+};
+
+// Collapses all visitors onto one Spotify request per cache window.
+const respondAndCache = (
+  payload: SpotifyNowPlayingPayload,
+  origin: string,
+  waitUntil: FunctionContext['waitUntil']
+) => {
+  const body = JSON.stringify(payload);
+  const baseHeaders = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': CACHE_CONTROL,
+  };
+  waitUntil(caches.default.put(PAYLOAD_CACHE_KEY, new Response(body, { headers: baseHeaders })));
+  return new Response(body, {
+    status: 200,
+    headers: { ...baseHeaders, ...corsHeaders(origin) },
+  });
+};
+
 export const onRequest = async (context: FunctionContext) => {
-  const { request, env } = context;
+  const { request, env, waitUntil } = context;
   let origin = '*';
 
   try {
@@ -208,21 +240,15 @@ export const onRequest = async (context: FunctionContext) => {
       return json({ error: 'spotify_not_configured' }, 500, origin);
     }
 
-    const accessToken = await getAccessToken(env);
-    const currentlyPlaying = await getCurrentlyPlaying(accessToken);
-    if (currentlyPlaying?.isPlaying) {
-      return json(currentlyPlaying, 200, origin);
+    const cached = await caches.default.match(PAYLOAD_CACHE_KEY);
+    if (cached) {
+      return withCors(cached, origin);
     }
 
-    if (currentlyPlaying) {
-      return json({ ...currentlyPlaying, isPlaying: false }, 200, origin);
-    }
-
-    const recentlyPlayed = await getRecentlyPlayed(accessToken);
-    if (recentlyPlayed) return json(recentlyPlayed, 200, origin);
-
-    return json(
-      {
+    const accessToken = await getAccessToken(env, waitUntil);
+    const payload =
+      (await getCurrentlyPlaying(accessToken)) ??
+      (await getRecentlyPlayed(accessToken)) ?? {
         isPlaying: false,
         trackName: 'Nothing playing right now',
         artists: 'Start a Spotify track to update this tile.',
@@ -230,10 +256,9 @@ export const onRequest = async (context: FunctionContext) => {
         albumImageUrl: '',
         trackUrl: 'https://open.spotify.com',
         lastUpdated: new Date().toISOString(),
-      },
-      200,
-      origin
-    );
+      };
+
+    return respondAndCache(payload, origin, waitUntil);
   } catch (error) {
     console.error('spotify-now-playing function failed', error);
     return json({ error: 'spotify_unavailable' }, 502, origin);
