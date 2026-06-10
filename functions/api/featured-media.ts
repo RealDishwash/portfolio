@@ -1,3 +1,11 @@
+import {
+  corsHeaders,
+  isOriginAllowed,
+  json,
+  resolveAllowedOrigins,
+  resolveOrigin,
+} from '../_lib/http';
+
 interface Env {
   TMDB_API_KEY?: string;
   FEATURED_MEDIA_TYPE?: string;
@@ -23,56 +31,10 @@ type TmdbMedia = {
 
 const TMDB_API_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w342';
-const DEFAULT_MEDIA_TYPE = 'tv';
 const DEFAULT_MEDIA_ID = '154385';
+const CACHE_CONTROL = 'public, max-age=3600';
 
-const parseAllowedOrigins = (value?: string) =>
-  (value || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-
-const resolveAllowedOrigins = (request: Request, allowedOrigin?: string) => {
-  const allowedOrigins = parseAllowedOrigins(allowedOrigin);
-  if (allowedOrigins.length > 0) return allowedOrigins;
-  return [new URL(request.url).origin];
-};
-
-const resolveOrigin = (request: Request, allowedOrigins: string[]) => {
-  const requestOrigin = request.headers.get('Origin');
-
-  if (allowedOrigins.includes('*')) return '*';
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) return requestOrigin;
-  return allowedOrigins[0];
-};
-
-const isOriginAllowed = (request: Request, allowedOrigins: string[]) => {
-  if (allowedOrigins.includes('*')) return true;
-  const requestOrigin = request.headers.get('Origin');
-  if (!requestOrigin) {
-    return allowedOrigins.includes(new URL(request.url).origin);
-  }
-  return allowedOrigins.includes(requestOrigin);
-};
-
-const corsHeaders = (origin: string) => ({
-  'Access-Control-Allow-Origin': origin,
-  'Access-Control-Allow-Methods': 'GET,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  Vary: 'Origin',
-});
-
-const json = (body: unknown, status: number, origin: string) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600',
-      ...corsHeaders(origin),
-    },
-  });
-
-const resolveMediaType = (value?: string) => (value === 'tv' ? 'tv' : DEFAULT_MEDIA_TYPE);
+const resolveMediaType = (value?: string) => (value === 'movie' ? 'movie' : 'tv');
 
 const resolveYear = (media: TmdbMedia) => {
   const date = media.release_date || media.first_air_date || '';
@@ -131,7 +93,8 @@ export const onRequest = async (context: FunctionContext) => {
         lastUpdated: new Date().toISOString(),
       },
       200,
-      origin
+      origin,
+      CACHE_CONTROL
     );
   } catch (error) {
     console.error('featured-media function failed', error);
