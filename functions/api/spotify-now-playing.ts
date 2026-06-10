@@ -20,6 +20,7 @@ type TokenCache = {
 
 type SpotifyTrack = {
   name?: string;
+  duration_ms?: number;
   artists?: Array<{ name?: string }>;
   album?: {
     name?: string;
@@ -37,6 +38,8 @@ type SpotifyNowPlayingPayload = {
   albumName: string;
   albumImageUrl: string;
   trackUrl: string;
+  progressMs: number | null;
+  durationMs: number | null;
   lastUpdated: string;
 };
 
@@ -136,7 +139,11 @@ const getAccessToken = async (env: Env, waitUntil: FunctionContext['waitUntil'])
   return data.access_token;
 };
 
-const toPayload = (track: SpotifyTrack, isPlaying: boolean): SpotifyNowPlayingPayload => {
+const toPayload = (
+  track: SpotifyTrack,
+  isPlaying: boolean,
+  progressMs: number | null = null
+): SpotifyNowPlayingPayload => {
   const artists = (track.artists || [])
     .map((artist) => artist.name)
     .filter((name): name is string => Boolean(name))
@@ -153,6 +160,8 @@ const toPayload = (track: SpotifyTrack, isPlaying: boolean): SpotifyNowPlayingPa
     albumName: track.album?.name || 'Unknown album',
     albumImageUrl: albumImageUrl || '',
     trackUrl: track.external_urls?.spotify || 'https://open.spotify.com',
+    progressMs,
+    durationMs: typeof track.duration_ms === 'number' ? track.duration_ms : null,
     lastUpdated: new Date().toISOString(),
   };
 };
@@ -167,11 +176,13 @@ const getCurrentlyPlaying = async (accessToken: string) => {
 
   const data = (await response.json()) as {
     is_playing?: boolean;
+    progress_ms?: number;
     item?: SpotifyTrack;
   };
 
   if (!data.item) return null;
-  return toPayload(data.item, Boolean(data.is_playing));
+  const progressMs = typeof data.progress_ms === 'number' ? data.progress_ms : null;
+  return toPayload(data.item, Boolean(data.is_playing), progressMs);
 };
 
 const getRecentlyPlayed = async (accessToken: string) => {
@@ -255,6 +266,8 @@ export const onRequest = async (context: FunctionContext) => {
         albumName: '',
         albumImageUrl: '',
         trackUrl: 'https://open.spotify.com',
+        progressMs: null,
+        durationMs: null,
         lastUpdated: new Date().toISOString(),
       };
 

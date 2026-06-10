@@ -30,18 +30,39 @@ const { spotifyPath } = Astro.props;
         decoding="async"
       />
     </a>
-    <div class="spotify-meta" aria-live="polite">
-      <a
-        class="spotify-title"
-        id="spotify-track-title"
-        data-spotify-link
-        href="https://open.spotify.com"
-        target="_blank"
-        rel="noreferrer"
-      >
-        Checking Spotify...
-      </a>
-      <p class="spotify-artists" id="spotify-artists">Fetching your listening status.</p>
+    <div class="spotify-info">
+      <div class="spotify-meta" aria-live="polite">
+        <a
+          class="spotify-title"
+          id="spotify-track-title"
+          data-spotify-link
+          href="https://open.spotify.com"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Checking Spotify...
+        </a>
+        <p class="spotify-artists" id="spotify-artists">Fetching your listening status.</p>
+      </div>
+      <div class="player-progress" aria-hidden="true">
+        <span class="player-time" id="spotify-time-current">-:--</span>
+        <div class="player-track-bar">
+          <span class="player-track-fill" id="spotify-progress-fill"></span>
+        </div>
+        <span class="player-time player-time-duration" id="spotify-time-duration">-:--</span>
+      </div>
+      <div class="player-controls" aria-hidden="true">
+        <span class="player-control">
+          <svg viewBox="0 0 24 24"><path d="M7 6h2v12H7V6Zm12 0v12l-9-6 9-6Z"></path></svg>
+        </span>
+        <span class="player-control player-control-main">
+          <svg class="player-icon-play" viewBox="0 0 24 24"><path d="M9 6v12l9.5-6L9 6Z"></path></svg>
+          <svg class="player-icon-pause" viewBox="0 0 24 24"><path d="M8 6h3v12H8V6Zm5 0h3v12h-3V6Z"></path></svg>
+        </span>
+        <span class="player-control">
+          <svg viewBox="0 0 24 24"><path d="M15 6h2v12h-2V6ZM5 6l9 6-9 6V6Z"></path></svg>
+        </span>
+      </div>
     </div>
   </div>
   <span class="spotify-corner-link" aria-hidden="true">
@@ -59,6 +80,9 @@ const { spotifyPath } = Astro.props;
 		albumName?: string;
 		albumImageUrl?: string;
 		trackUrl?: string;
+		progressMs?: number | null;
+		durationMs?: number | null;
+		lastUpdated?: string;
 	};
 
 	type SpotifyViewState = {
@@ -68,10 +92,15 @@ const { spotifyPath } = Astro.props;
 		trackArtists: string;
 		imageUrl: string;
 		trackUrl: string;
+		isPlaying: boolean;
+		progressMs: number | null;
+		durationMs: number | null;
 	};
 
 	const DEFAULT_TRACK_URL = 'https://open.spotify.com';
 	const POLL_INTERVAL_MS = 15_000;
+	const PROGRESS_TICK_MS = 1_000;
+	const MAX_CACHE_AGE_MS = 60_000;
 	const ENDPOINT = '/api/spotify-now-playing';
 	const PLACEHOLDER_ART = `data:image/svg+xml,${encodeURIComponent(
 		"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#131b26'/><stop offset='1' stop-color='#0c121a'/></linearGradient></defs><rect width='64' height='64' fill='url(#g)'/><circle cx='32' cy='32' r='15' fill='none' stroke='#2f3a4b' stroke-width='2'/><circle cx='32' cy='32' r='2.8' fill='#2f3a4b'/></svg>"
@@ -83,11 +112,25 @@ const { spotifyPath } = Astro.props;
 	const artistsNode = document.querySelector<HTMLElement>('#spotify-artists');
 	const metaNode = document.querySelector<HTMLElement>('#spotify-tile .spotify-meta');
 	const artNode = document.querySelector<HTMLImageElement>('#spotify-art');
+	const timeCurrentNode = document.querySelector<HTMLElement>('#spotify-time-current');
+	const timeDurationNode = document.querySelector<HTMLElement>('#spotify-time-duration');
+	const progressFillNode = document.querySelector<HTMLElement>('#spotify-progress-fill');
 	const linkNodes = Array.from(
 		document.querySelectorAll<HTMLAnchorElement>('[data-spotify-link]')
 	);
 
-	if (tileNode && stateNode && titleNode && artistsNode && metaNode && artNode && linkNodes.length) {
+	if (
+		tileNode &&
+		stateNode &&
+		titleNode &&
+		artistsNode &&
+		metaNode &&
+		artNode &&
+		timeCurrentNode &&
+		timeDurationNode &&
+		progressFillNode &&
+		linkNodes.length
+	) {
 		const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 		const applyLink = (url: string) => {
@@ -101,6 +144,35 @@ const { spotifyPath } = Astro.props;
 			metaNode.classList.remove('is-swapping');
 		};
 
+		const formatTime = (ms: number) => {
+			const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+			const minutes = Math.floor(totalSeconds / 60);
+			const seconds = totalSeconds % 60;
+			return `${minutes}:${String(seconds).padStart(2, '0')}`;
+		};
+
+		// Progress is extrapolated locally between polls while a track plays.
+		let progressBaseMs: number | null = null;
+		let progressBaseAt = 0;
+		let progressDurationMs: number | null = null;
+		let progressPlaying = false;
+
+		const renderProgress = () => {
+			if (progressBaseMs === null || progressDurationMs === null || progressDurationMs <= 0) {
+				timeCurrentNode.textContent = '-:--';
+				timeDurationNode.textContent =
+					progressDurationMs && progressDurationMs > 0 ? formatTime(progressDurationMs) : '-:--';
+				progressFillNode.style.width = '0%';
+				return;
+			}
+
+			const elapsed = progressPlaying ? Date.now() - progressBaseAt : 0;
+			const shownMs = Math.min(progressBaseMs + elapsed, progressDurationMs);
+			timeCurrentNode.textContent = formatTime(shownMs);
+			timeDurationNode.textContent = formatTime(progressDurationMs);
+			progressFillNode.style.width = `${(shownMs / progressDurationMs) * 100}%`;
+		};
+
 		const applyView = (viewState: SpotifyViewState) => {
 			tileNode.dataset.spotifyState = viewState.spotifyState;
 			stateNode.textContent = viewState.stateLabel;
@@ -108,6 +180,12 @@ const { spotifyPath } = Astro.props;
 			artistsNode.textContent = viewState.trackArtists;
 			artNode.src = viewState.imageUrl;
 			applyLink(viewState.trackUrl);
+
+			progressBaseMs = viewState.progressMs;
+			progressBaseAt = Date.now();
+			progressDurationMs = viewState.durationMs;
+			progressPlaying = viewState.isPlaying;
+			renderProgress();
 		};
 
 		let lastViewState: SpotifyViewState | null = null;
@@ -164,6 +242,9 @@ const { spotifyPath } = Astro.props;
 				trackArtists: 'Fetching your listening status.',
 				imageUrl: PLACEHOLDER_ART,
 				trackUrl: DEFAULT_TRACK_URL,
+				isPlaying: false,
+				progressMs: null,
+				durationMs: null,
 			});
 		};
 
@@ -175,6 +256,9 @@ const { spotifyPath } = Astro.props;
 				trackArtists: 'Unable to load listening status right now.',
 				imageUrl: PLACEHOLDER_ART,
 				trackUrl: DEFAULT_TRACK_URL,
+				isPlaying: false,
+				progressMs: null,
+				durationMs: null,
 			});
 		};
 
@@ -182,6 +266,16 @@ const { spotifyPath } = Astro.props;
 			const artistsAndAlbum = payload.albumName
 				? `${payload.artists} • ${payload.albumName}`
 				: payload.artists;
+
+			// The endpoint is edge-cached, so account for the payload's age when playing.
+			let progressMs = typeof payload.progressMs === 'number' ? payload.progressMs : null;
+			if (progressMs !== null && payload.isPlaying && payload.lastUpdated) {
+				const payloadAgeMs = Date.now() - Date.parse(payload.lastUpdated);
+				if (Number.isFinite(payloadAgeMs) && payloadAgeMs > 0) {
+					progressMs += Math.min(payloadAgeMs, MAX_CACHE_AGE_MS);
+				}
+			}
+
 			setViewState({
 				spotifyState: payload.isPlaying ? 'playing' : 'idle',
 				stateLabel: payload.isPlaying ? 'Live' : 'Last played',
@@ -189,6 +283,9 @@ const { spotifyPath } = Astro.props;
 				trackArtists: artistsAndAlbum || 'Unknown artist',
 				imageUrl: payload.albumImageUrl || PLACEHOLDER_ART,
 				trackUrl: payload.trackUrl || DEFAULT_TRACK_URL,
+				isPlaying: payload.isPlaying,
+				progressMs,
+				durationMs: typeof payload.durationMs === 'number' ? payload.durationMs : null,
 			});
 		};
 
@@ -216,5 +313,98 @@ const { spotifyPath } = Astro.props;
 		window.setInterval(() => {
 			void loadNowPlaying();
 		}, POLL_INTERVAL_MS);
+		window.setInterval(renderProgress, PROGRESS_TICK_MS);
 	}
 </script>
+
+<style>
+	.spotify-info {
+		min-width: 0;
+	}
+
+	.player-progress {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		margin-top: 0.7rem;
+	}
+
+	.player-time {
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		letter-spacing: 0.02em;
+		color: var(--muted);
+		min-width: 2.6em;
+	}
+
+	.player-time-duration {
+		text-align: right;
+	}
+
+	.player-track-bar {
+		flex: 1;
+		height: 4px;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--border), black 30%);
+		overflow: hidden;
+	}
+
+	.player-track-fill {
+		display: block;
+		height: 100%;
+		width: 0%;
+		border-radius: inherit;
+		background: var(--success);
+		transition: width 0.4s linear;
+	}
+
+	.player-controls {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1.15rem;
+		margin-top: 0.55rem;
+		color: var(--text-soft);
+	}
+
+	.player-control {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.player-control svg {
+		width: 0.95rem;
+		height: 0.95rem;
+		display: block;
+		fill: currentColor;
+	}
+
+	.player-control-main {
+		width: 1.9rem;
+		height: 1.9rem;
+		border-radius: 999px;
+		background: var(--text);
+		color: var(--tile-strong);
+	}
+
+	.player-control-main svg {
+		width: 0.85rem;
+		height: 0.85rem;
+	}
+
+	/* Swap the main button glyph with the playback state. */
+	.spotify[data-spotify-state='playing'] .player-icon-play {
+		display: none;
+	}
+
+	.spotify:not([data-spotify-state='playing']) .player-icon-pause {
+		display: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.player-track-fill {
+			transition: none;
+		}
+	}
+</style>

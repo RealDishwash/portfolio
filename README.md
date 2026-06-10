@@ -59,7 +59,7 @@ Both endpoints run on Cloudflare Pages Functions, allow `GET`/`OPTIONS` only, an
   - Falls back to the most recently played track.
   - Returns a friendly idle payload when no recent track exists.
   - Responses are cached at the edge for 10 seconds (`caches.default`), so all visitors share one Spotify request per window; access tokens are also cached durably across isolates.
-- Response shape: `isPlaying`, `trackName`, `artists`, `albumName`, `albumImageUrl`, `trackUrl`, `lastUpdated`
+- Response shape: `isPlaying`, `trackName`, `artists`, `albumName`, `albumImageUrl`, `trackUrl`, `progressMs`, `durationMs`, `lastUpdated`
 
 ### Featured Media
 
