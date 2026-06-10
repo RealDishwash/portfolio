@@ -40,3 +40,112 @@ const { tools } = Astro.props;
     </div>
   </div>
 </article>
+
+<style>
+	.about {
+		display: flex;
+		flex-direction: column;
+		gap: 0.52rem;
+	}
+
+	.about-highlights {
+		margin: 0.08rem 0 0.08rem;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.42rem;
+	}
+
+	.about-highlights span {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.34rem 0.58rem;
+		border-radius: var(--radius-xs);
+		border: 1px solid color-mix(in srgb, var(--accent), var(--border) 72%);
+		background: color-mix(in srgb, var(--tile-strong), white 3%);
+		font-size: var(--label-sm);
+		font-family: var(--font-mono);
+		letter-spacing: 0.02em;
+		color: var(--text-soft);
+	}
+
+	.about-detail {
+		margin: 0.52rem 0 0;
+	}
+
+	.about-stack {
+		margin-top: auto;
+		padding-top: 0.35rem;
+	}
+
+	.about-divider {
+		height: 1px;
+		background: color-mix(in srgb, var(--border), white 36%);
+		box-shadow: 0 0 0.45rem rgb(255 255 255 / 8%);
+		margin: 0 0 0.72rem;
+	}
+
+	.chip-label {
+		margin: 0 0 0.1rem;
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.09em;
+		font-size: var(--label-xs);
+		color: var(--muted);
+	}
+
+	.tool-grid {
+		margin: 0.04rem 0 0;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.48rem;
+	}
+
+	.tool-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.62rem;
+		padding: 0.56rem 0.86rem;
+		border-radius: var(--radius-xs);
+		border: 1px solid color-mix(in srgb, var(--accent), var(--border) 68%);
+		background: var(--tile-strong);
+		font-size: 0.92rem;
+		font-family: var(--font-mono);
+		letter-spacing: 0.02em;
+		line-height: 1.2;
+		color: var(--text-soft);
+		transition:
+			border-color 0.2s ease,
+			transform 0.2s ease;
+	}
+
+	.tool-chip:hover {
+		border-color: color-mix(in srgb, var(--accent-soft), white 24%);
+		transform: translateY(-1px);
+	}
+
+	.tool-chip svg {
+		width: 1.32rem;
+		height: 1.32rem;
+		display: block;
+		flex-shrink: 0;
+		color: var(--text);
+	}
+
+	@media (max-width: 980px) {
+		.tool-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 640px) {
+		.tool-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 380px) {
+		.tool-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>

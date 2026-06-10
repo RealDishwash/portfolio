@@ -19,3 +19,302 @@
     <p class="weather-updated muted" id="weather-updated">Updating...</p>
   </div>
 </article>
+
+<script>
+	const WEATHER_URL =
+		'https://api.open-meteo.com/v1/forecast?latitude=-33.8688&longitude=151.2093&current=temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m&timezone=Australia%2FSydney';
+
+	type OpenMeteoCurrent = {
+		temperature_2m?: number;
+		weather_code?: number;
+		apparent_temperature?: number;
+		relative_humidity_2m?: number;
+		wind_speed_10m?: number;
+	};
+
+	type OpenMeteoResponse = {
+		current?: OpenMeteoCurrent;
+	};
+
+	const weatherIconFromCode = (code: number) => {
+		const svg = (paths: string) =>
+			`<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+
+		if (code === 0) {
+			return svg(
+				'<circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"></path>'
+			);
+		}
+		if (code === 1 || code === 2) {
+			return svg(
+				'<path d="M8.5 16H17a3 3 0 0 0 .5-6A4.5 4.5 0 0 0 9 9.2 3 3 0 0 0 8.5 16Z"></path><path d="M8 5.5A2.5 2.5 0 1 1 5.5 8"></path>'
+			);
+		}
+		if (code === 3) {
+			return svg('<path d="M7 18h9a4 4 0 0 0 .8-7.9A5.5 5.5 0 0 0 6.2 8.4 4 4 0 0 0 7 18Z"></path>');
+		}
+		if (code === 45 || code === 48) {
+			return svg(
+				'<path d="M7.5 14.5h9a3.5 3.5 0 0 0 .6-7A5 5 0 0 0 7.4 6.2a3.5 3.5 0 0 0 .1 8.3Z"></path><path d="M6 17h12M7 20h10"></path>'
+			);
+		}
+		if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
+			return svg(
+				'<path d="M7 14h10a3.6 3.6 0 0 0 .7-7.1A5 5 0 0 0 8.3 6 3.6 3.6 0 0 0 7 14Z"></path><path d="M9 16l-.8 2M13 16l-.8 2M17 16l-.8 2"></path>'
+			);
+		}
+		if ((code >= 71 && code <= 77) || code === 85 || code === 86) {
+			return svg(
+				'<path d="M7 14h10a3.6 3.6 0 0 0 .7-7.1A5 5 0 0 0 8.3 6 3.6 3.6 0 0 0 7 14Z"></path><path d="M9 17h0M13 18h0M16.5 17.5h0"></path>'
+			);
+		}
+		if (code >= 95 && code <= 99) {
+			return svg(
+				'<path d="M7 14h10a3.6 3.6 0 0 0 .7-7.1A5 5 0 0 0 8.3 6 3.6 3.6 0 0 0 7 14Z"></path><path d="M12 14.5l-1.8 3h1.5l-1 2.5 3.1-4h-1.6l1.1-1.5"></path>'
+			);
+		}
+		return svg('<path d="M7 18h9a4 4 0 0 0 .8-7.9A5.5 5.5 0 0 0 6.2 8.4 4 4 0 0 0 7 18Z"></path>');
+	};
+
+	const timeNode = document.querySelector<HTMLElement>('#sydney-time');
+	const weatherTempNode = document.querySelector<HTMLElement>('#weather-temp');
+	const weatherIconNode = document.querySelector<HTMLElement>('#weather-icon');
+	const weatherFeelsNode = document.querySelector<HTMLElement>('#weather-feels');
+	const weatherHumidityNode = document.querySelector<HTMLElement>('#weather-humidity');
+	const weatherWindNode = document.querySelector<HTMLElement>('#weather-wind');
+	const weatherUpdatedNode = document.querySelector<HTMLElement>('#weather-updated');
+	let lastWeatherUpdateAt: number | null = null;
+	let hasWeatherResult = false;
+
+	const renderTime = () => {
+		if (!timeNode) return;
+		const now = new Date();
+		const value = new Intl.DateTimeFormat('en-AU', {
+			timeZone: 'Australia/Sydney',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false,
+			timeZoneName: 'short',
+		}).format(now);
+		timeNode.textContent = value;
+	};
+
+	const renderWeatherFreshness = () => {
+		if (!weatherUpdatedNode) return;
+		if (!hasWeatherResult) {
+			weatherUpdatedNode.textContent = 'Updating...';
+			return;
+		}
+		if (lastWeatherUpdateAt === null) {
+			weatherUpdatedNode.textContent = 'Update unavailable';
+			return;
+		}
+		const elapsedMinutes = Math.floor((Date.now() - lastWeatherUpdateAt) / 60_000);
+		if (elapsedMinutes < 1) {
+			weatherUpdatedNode.textContent = 'Updated just now';
+			return;
+		}
+		if (elapsedMinutes < 60) {
+			weatherUpdatedNode.textContent = `Updated ${elapsedMinutes}m ago`;
+			return;
+		}
+		weatherUpdatedNode.textContent = 'Updated 1h+ ago';
+	};
+
+	const loadWeather = async () => {
+		if (
+			!weatherTempNode ||
+			!weatherIconNode ||
+			!weatherFeelsNode ||
+			!weatherHumidityNode ||
+			!weatherWindNode ||
+			!weatherUpdatedNode
+		) {
+			return;
+		}
+		try {
+			const response = await fetch(WEATHER_URL);
+			if (!response.ok) throw new Error('weather request failed');
+			const data = (await response.json()) as OpenMeteoResponse;
+			const current = data.current;
+			if (!current) throw new Error('missing weather payload');
+			const temperature = Number(current.temperature_2m);
+			const weatherCode = Number(current.weather_code);
+			const feelsLike = Number(current.apparent_temperature);
+			const humidity = Number(current.relative_humidity_2m);
+			const wind = Number(current.wind_speed_10m);
+			if (
+				!Number.isFinite(temperature) ||
+				!Number.isFinite(weatherCode) ||
+				!Number.isFinite(feelsLike) ||
+				!Number.isFinite(humidity) ||
+				!Number.isFinite(wind)
+			) {
+				throw new Error('invalid weather payload');
+			}
+			weatherTempNode.textContent = `${Math.round(temperature)} C`;
+			weatherIconNode.innerHTML = weatherIconFromCode(weatherCode);
+			weatherFeelsNode.textContent = `Feels ${Math.round(feelsLike)} C`;
+			weatherHumidityNode.textContent = `Humidity ${Math.round(humidity)}%`;
+			weatherWindNode.textContent = `Wind ${Math.round(wind)} km/h`;
+			lastWeatherUpdateAt = Date.now();
+			hasWeatherResult = true;
+			renderWeatherFreshness();
+		} catch {
+			weatherTempNode.textContent = '-- C';
+			weatherIconNode.textContent = '--';
+			weatherFeelsNode.textContent = 'Feels -- C';
+			weatherHumidityNode.textContent = 'Humidity --%';
+			weatherWindNode.textContent = 'Wind -- km/h';
+			lastWeatherUpdateAt = null;
+			hasWeatherResult = true;
+			renderWeatherFreshness();
+		}
+	};
+
+	renderTime();
+	renderWeatherFreshness();
+	void loadWeather();
+
+	window.setInterval(renderTime, 1000);
+	window.setInterval(() => {
+		void loadWeather();
+	}, 10 * 60 * 1000);
+	window.setInterval(renderWeatherFreshness, 60 * 1000);
+</script>
+
+<style>
+	.meta {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.tile.meta::before {
+		content: none;
+	}
+
+	.meta-block {
+		position: relative;
+	}
+
+	.meta-block p:last-child {
+		margin-bottom: 0;
+	}
+
+	.time-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.8rem;
+	}
+
+	.clock {
+		font-size: clamp(1.35rem, 2.8vw, 1.85rem);
+		margin: 0;
+		line-height: 1.1;
+	}
+
+	.clock-row {
+		display: block;
+		margin: 0.82rem 0 0.3rem;
+	}
+
+	.weather-chip {
+		display: inline-flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		padding: 0.36rem 0.62rem;
+		border-radius: var(--radius-sm);
+		border: 1px solid color-mix(in srgb, var(--accent), var(--border) 66%);
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--tile-strong), white 3%),
+			color-mix(in srgb, var(--tile-strong), black 2%)
+		);
+		color: var(--text-soft);
+		line-height: 1;
+		white-space: nowrap;
+		min-width: 5rem;
+		position: relative;
+		overflow: hidden;
+		box-shadow: 0 0 0.4rem rgb(255 95 86 / 10%);
+	}
+
+	.weather-chip::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 1px;
+		background: color-mix(in srgb, var(--border), white 14%);
+		opacity: 0.62;
+		pointer-events: none;
+	}
+
+	#weather-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1rem;
+		height: 1rem;
+	}
+
+	/* The icon svg is injected at runtime, so it never gets Astro's scope class. */
+	#weather-icon :global(svg) {
+		width: 1rem;
+		height: 1rem;
+		display: block;
+		stroke: currentColor;
+		fill: none;
+		stroke-width: 1.9;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	#weather-temp {
+		font-size: 1.08rem;
+		font-family: var(--font-mono);
+		letter-spacing: 0.03em;
+		font-weight: 500;
+		line-height: 1;
+	}
+
+	.weather-metrics {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.42rem;
+		margin: 0 0 0.42rem;
+	}
+
+	.metric-chip {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.28rem 0.52rem;
+		border-radius: var(--radius-xs);
+		border: 1px solid color-mix(in srgb, var(--border), white 8%);
+		background: color-mix(in srgb, var(--tile-strong), white 2%);
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		letter-spacing: 0.02em;
+		line-height: 1.2;
+		color: var(--text-soft);
+	}
+
+	.weather-updated {
+		margin: 0.15rem 0 0;
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		letter-spacing: 0.02em;
+	}
+
+	@media (max-width: 640px) {
+		.time-head {
+			align-items: flex-start;
+		}
+	}
+</style>

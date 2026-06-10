@@ -18,3 +18,213 @@
     </p>
   </div>
 </article>
+
+<script>
+	const terminalCommandNode = document.querySelector<HTMLElement>('#terminal-command');
+	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	const terminalCommands = [
+		'bun run astro -- check',
+		'bun run build',
+		'docker compose up -d',
+		'git status -sb',
+		'gh workflow run deploy.yml',
+		'wrangler pages deploy dist',
+	];
+
+	if (terminalCommandNode && !prefersReducedMotion) {
+		let commandIndex = 0;
+		let charIndex = 0;
+		let isDeleting = false;
+		let typewriterTimeoutId = 0;
+
+		const runTypewriter = () => {
+			const currentCommand = terminalCommands[commandIndex];
+
+			if (isDeleting) {
+				charIndex = Math.max(0, charIndex - 1);
+			} else {
+				charIndex = Math.min(currentCommand.length, charIndex + 1);
+			}
+
+			terminalCommandNode.textContent = currentCommand.slice(0, charIndex);
+
+			let delay = isDeleting ? 55 : 95;
+			if (!isDeleting && charIndex === currentCommand.length) {
+				delay = 1350;
+				isDeleting = true;
+			} else if (isDeleting && charIndex === 0) {
+				delay = 360;
+				isDeleting = false;
+				commandIndex = (commandIndex + 1) % terminalCommands.length;
+			}
+
+			typewriterTimeoutId = window.setTimeout(runTypewriter, delay);
+		};
+
+		terminalCommandNode.textContent = '';
+		typewriterTimeoutId = window.setTimeout(runTypewriter, 250);
+
+		window.addEventListener(
+			'pagehide',
+			() => {
+				window.clearTimeout(typewriterTimeoutId);
+			},
+			{ once: true }
+		);
+	} else if (terminalCommandNode) {
+		terminalCommandNode.textContent = terminalCommands[0];
+	}
+</script>
+
+<style>
+	.terminal {
+		padding: 0;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		background: #11151d;
+		height: 100%;
+	}
+
+	.terminal::before {
+		display: none;
+	}
+
+	.terminal:focus-within {
+		border-color: color-mix(in srgb, var(--accent), var(--border) 38%);
+	}
+
+	.terminal-chrome {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.44rem 0.62rem;
+		background: #1f2632;
+		border-bottom: 1px solid #3a4352;
+	}
+
+	.terminal-lights {
+		display: inline-flex;
+		gap: 0.34rem;
+	}
+
+	.terminal-light {
+		width: 0.68rem;
+		height: 0.68rem;
+		border-radius: 999px;
+		border: 1px solid rgb(0 0 0 / 34%);
+		box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%);
+	}
+
+	.terminal-light-close {
+		background: #ff5f57;
+	}
+
+	.terminal-light-minimize {
+		background: #ffbd2f;
+	}
+
+	.terminal-light-zoom {
+		background: #28c840;
+	}
+
+	.terminal-caption {
+		margin: 0;
+		text-align: center;
+		font-size: var(--label-xs);
+		letter-spacing: 0.04em;
+		color: var(--text-soft);
+		font-family: var(--font-mono);
+		opacity: 0.9;
+	}
+
+	.terminal-spacer {
+		width: 2.2rem;
+		display: inline-block;
+	}
+
+	.terminal-output {
+		margin-top: 0;
+		padding: 0.8rem 0.85rem 0.95rem;
+		flex: 1;
+		background: #0c1118;
+	}
+
+	.terminal-line {
+		margin: 0;
+		font-size: var(--text-sm);
+		line-height: 1.5;
+		color: var(--text-soft);
+		font-family: var(--font-mono);
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 0.42rem;
+	}
+
+	.terminal-line + .terminal-line {
+		margin-top: 0.32rem;
+	}
+
+	.terminal-line-muted {
+		color: var(--muted);
+		font-size: var(--text-xs);
+		letter-spacing: 0.01em;
+	}
+
+	.terminal-user {
+		color: #90b4ff;
+	}
+
+	.terminal-path {
+		color: color-mix(in srgb, var(--success), white 20%);
+	}
+
+	.terminal-symbol {
+		color: var(--accent-soft);
+	}
+
+	.terminal-command-wrap {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0;
+		min-width: 0;
+	}
+
+	#terminal-command {
+		display: inline;
+		color: var(--text);
+		white-space: normal;
+		overflow-wrap: anywhere;
+		min-width: 0;
+	}
+
+	.terminal-cursor {
+		width: 0.6ch;
+		height: 1.15em;
+		background: color-mix(in srgb, var(--text), var(--accent-soft) 10%);
+		display: inline-block;
+		transform: translateY(0.13em);
+		animation: terminalCursorBlink 1s step-end infinite;
+		will-change: opacity;
+	}
+
+	@keyframes terminalCursorBlink {
+		0%,
+		49% {
+			opacity: 1;
+		}
+		50%,
+		100% {
+			opacity: 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.terminal-cursor {
+			animation: none;
+		}
+	}
+</style>

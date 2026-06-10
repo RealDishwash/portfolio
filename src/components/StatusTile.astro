@@ -7,3 +7,64 @@
     Setting up Immich and SMB shares on my TrueNAS after installing drives and building a RAIDZ1 array.
   </p>
 </article>
+
+<style>
+	.now-tile {
+		display: flex;
+		flex-direction: column;
+		gap: 0.68rem;
+	}
+
+	.status-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.dot {
+		width: 0.72rem;
+		height: 0.72rem;
+		border-radius: 999px;
+		background: var(--accent);
+		box-shadow:
+			0 0 0.25rem rgb(255 95 86 / 55%),
+			0 0 0.85rem rgb(255 95 86 / 45%);
+		animation: livePulse 2.4s ease-in-out infinite;
+	}
+
+	@keyframes livePulse {
+		0%,
+		100% {
+			filter: brightness(0.72);
+			box-shadow:
+				0 0 0.12rem rgb(255 95 86 / 45%),
+				0 0 0.4rem rgb(255 95 86 / 30%);
+		}
+		50% {
+			filter: brightness(1.28);
+			box-shadow:
+				0 0 0.3rem rgb(255 95 86 / 82%),
+				0 0 1rem rgb(255 95 86 / 64%);
+		}
+	}
+
+	.status-message {
+		margin: 0;
+		transition: opacity 0.18s ease;
+		min-height: calc(1.5em * 2);
+	}
+
+	.status-message.is-changing {
+		opacity: 0.18;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.dot {
+			animation: none;
+		}
+
+		.status-message {
+			transition: none;
+		}
+	}
+</style>
