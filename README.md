@@ -5,10 +5,11 @@ Personal portfolio site built with Astro (zero client-side framework) and Cloudf
 ## Highlights
 
 - Bento-style homepage with:
-  - Hero, social links, and profile image
+  - Hero with terminal-prompt kicker, social links, and profile image
   - Engineering snapshot with core stack chips
+  - Featured project and project cards
+  - Latest activity tile (live latest commit from the GitHub events API, with a static fallback)
   - Current conditions panel (Sydney clock + weather)
-  - Status tile ("What I'm Doing")
   - Spotify now playing card
   - Featured media card (TMDB movie/TV pick)
   - Animated terminal-style command tile
@@ -18,8 +19,10 @@ Personal portfolio site built with Astro (zero client-side framework) and Cloudf
   - "Updated just now / Xm ago" freshness indicator
 - Motion and interaction:
   - Staggered tile intro animation
+  - Tile hover lift with layered shadows
   - Typewriter terminal command loop
   - `prefers-reduced-motion` safeguards
+- Self-hosted fonts (Fontsource) — no render-blocking Google Fonts requests
 
 ## Commands
 
