@@ -1,17 +1,17 @@
 <article class="tile terminal">
   <div class="terminal-chrome" aria-hidden="true">
-    <div class="terminal-lights">
-      <span class="terminal-light terminal-light-close"></span>
-      <span class="terminal-light terminal-light-minimize"></span>
-      <span class="terminal-light terminal-light-zoom"></span>
-    </div>
+    <span class="terminal-chrome-spacer"></span>
     <p class="terminal-caption">fish - 80x24</p>
-    <span class="terminal-spacer"></span>
+    <div class="terminal-controls">
+      <span class="terminal-control">&minus;</span>
+      <span class="terminal-control">&#9633;</span>
+      <span class="terminal-control">&#10005;</span>
+    </div>
   </div>
   <div class="terminal-output" aria-live="polite">
-    <p class="terminal-line terminal-line-muted">Last login: today on ttys000</p>
+    <p class="terminal-line terminal-line-muted">Last login: today on pts/0</p>
     <p class="terminal-line">
-      <span class="terminal-user">vishwas@mbp</span>
+      <span class="terminal-user">vishwas@omnibook</span>
       <span class="terminal-path">~</span>
       <span class="terminal-symbol">&gt;</span>
       <span class="terminal-command-wrap"><span id="terminal-command">bun run astro -- check</span><span class="terminal-cursor" aria-hidden="true"></span></span>
@@ -96,38 +96,14 @@
 	}
 
 	.terminal-chrome {
+		/* Equal flexible side columns keep the caption truly centered. */
 		display: grid;
-		grid-template-columns: auto 1fr auto;
+		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 		align-items: center;
 		gap: 0.6rem;
-		padding: 0.44rem 0.62rem;
+		padding: 0.4rem 0.62rem;
 		background: #1f2632;
 		border-bottom: 1px solid #3a4352;
-	}
-
-	.terminal-lights {
-		display: inline-flex;
-		gap: 0.34rem;
-	}
-
-	.terminal-light {
-		width: 0.68rem;
-		height: 0.68rem;
-		border-radius: 999px;
-		border: 1px solid rgb(0 0 0 / 34%);
-		box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%);
-	}
-
-	.terminal-light-close {
-		background: #ff5f57;
-	}
-
-	.terminal-light-minimize {
-		background: #ffbd2f;
-	}
-
-	.terminal-light-zoom {
-		background: #28c840;
 	}
 
 	.terminal-caption {
@@ -140,9 +116,24 @@
 		opacity: 0.9;
 	}
 
-	.terminal-spacer {
-		width: 2.2rem;
-		display: inline-block;
+	.terminal-controls {
+		justify-self: end;
+		display: inline-flex;
+		gap: 0.4rem;
+	}
+
+	.terminal-control {
+		width: 1.05rem;
+		height: 1.05rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 999px;
+		background: #2a3342;
+		color: var(--text-soft);
+		font-family: var(--font-mono);
+		font-size: 0.66rem;
+		line-height: 1;
 	}
 
 	.terminal-output {
