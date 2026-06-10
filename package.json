@@ -11,6 +11,8 @@
     "check:functions": "tsc -p functions --noEmit"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/space-grotesk": "^5.2.10",
     "astro": "^5.17.1",
     "simple-icons": "^16.9.0"
   },

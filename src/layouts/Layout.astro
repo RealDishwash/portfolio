@@ -1,57 +1,67 @@
 ---
-const { title = 'Portfolio' } = Astro.props;
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+import '@fontsource/ibm-plex-mono/600.css';
+import '@fontsource/ibm-plex-mono/700.css';
+import '@fontsource/space-grotesk/400.css';
+import '@fontsource/space-grotesk/500.css';
+import '@fontsource/space-grotesk/700.css';
+
+const {
+	title = 'Portfolio',
+	description = 'Vishwas Parpattegar — software engineering student at UTS building CI/CD pipelines, container platforms, and self-hosted infrastructure.',
+} = Astro.props;
 ---
 
-	<!doctype html>
-	<html lang="en">
-		<head>
+<!doctype html>
+<html lang="en">
+	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap"
-			rel="stylesheet"
-		/>
-			<meta name="generator" content={Astro.generator} />
-			<title>{title}</title>
-		</head>
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content="website" />
+		<meta name="twitter:card" content="summary" />
+	</head>
 	<body>
 		<slot />
 	</body>
 </html>
 
-	<style is:global>
-		:root {
-			--bg: #070b10;
-			--bg-elevated: #0a1017;
-			--tile: #0d131b;
-			--tile-strong: #090e15;
-			--tile-alt: #0b1219;
-			--text: #edf1f5;
-			--text-soft: #c6ced8;
-			--muted: #8e98a6;
-			--border: #3a4556;
-			--accent: #ff5f56;
-			--accent-soft: #ff9b95;
-			--success: #27c93f;
-			--ring: #465267;
-			--avatar-bg: #0c121b;
-			--radius-lg: 16px;
-			--radius-md: 12px;
-			--radius-sm: 10px;
-			--radius-xs: 8px;
-			--font-sans: 'Space Grotesk', 'Segoe UI', sans-serif;
-			--font-mono: 'IBM Plex Mono', 'Fira Code', 'SFMono-Regular', Menlo, monospace;
-			--text-base: 0.95rem;
-			--text-sm: 0.88rem;
-			--text-xs: 0.78rem;
-			--label-sm: 0.74rem;
-			--label-xs: 0.7rem;
-			color-scheme: dark;
-		}
+<style is:global>
+	:root {
+		--bg: #070b10;
+		--bg-elevated: #0a1017;
+		--tile: #0d131b;
+		--tile-strong: #090e15;
+		--tile-alt: #0b1219;
+		--text: #edf1f5;
+		--text-soft: #c6ced8;
+		--muted: #8e98a6;
+		--border: #3a4556;
+		--accent: #ff5f56;
+		--accent-soft: #ff9b95;
+		--success: #27c93f;
+		--ring: #465267;
+		--avatar-bg: #0c121b;
+		--radius-lg: 16px;
+		--radius-md: 12px;
+		--radius-sm: 10px;
+		--radius-xs: 8px;
+		--font-sans: 'Space Grotesk', 'Segoe UI', sans-serif;
+		--font-mono: 'IBM Plex Mono', 'Fira Code', 'SFMono-Regular', Menlo, monospace;
+		--text-base: 0.95rem;
+		--text-sm: 0.88rem;
+		--text-xs: 0.78rem;
+		--label-sm: 0.74rem;
+		--label-xs: 0.7rem;
+		color-scheme: dark;
+	}
 
 	*,
 	*::before,
