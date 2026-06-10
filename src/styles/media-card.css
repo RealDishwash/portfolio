@@ -29,12 +29,9 @@
 
 .spotify[data-spotify-state='playing'] .spotify-state,
 .media-tile[data-media-state='selected'] .spotify-state {
-	color: var(--success);
+	color: color-mix(in srgb, var(--success), white 22%);
 	border-color: color-mix(in srgb, var(--success), var(--border) 45%);
-	box-shadow:
-		0 0 0.2rem rgb(39 201 63 / 26%),
-		0 0 0.7rem rgb(39 201 63 / 22%);
-	animation: liveBadgePulse 2.4s ease-in-out infinite;
+	background: color-mix(in srgb, var(--success), var(--tile-strong) 90%);
 }
 
 .spotify[data-spotify-state='idle'] .spotify-state {
@@ -45,22 +42,6 @@
 .media-tile[data-media-state='error'] .spotify-state {
 	color: var(--accent-soft);
 	border-color: color-mix(in srgb, var(--accent-soft), var(--border) 46%);
-}
-
-@keyframes liveBadgePulse {
-	0%,
-	100% {
-		filter: brightness(0.84);
-		box-shadow:
-			0 0 0.12rem rgb(39 201 63 / 20%),
-			0 0 0.45rem rgb(39 201 63 / 16%);
-	}
-	50% {
-		filter: brightness(1.2);
-		box-shadow:
-			0 0 0.28rem rgb(39 201 63 / 48%),
-			0 0 0.9rem rgb(39 201 63 / 32%);
-	}
 }
 
 .spotify-body {
@@ -173,7 +154,7 @@
 .spotify-artists {
 	margin: 0;
 	font-size: var(--text-sm);
-	color: var(--muted);
+	color: var(--text-soft);
 	line-height: 1.35;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -221,8 +202,6 @@
 		transition: none;
 	}
 
-	.spotify[data-spotify-state='playing'] .spotify-state,
-	.media-tile[data-media-state='selected'] .spotify-state,
 	.spotify-state.is-state-bump {
 		animation: none;
 	}
