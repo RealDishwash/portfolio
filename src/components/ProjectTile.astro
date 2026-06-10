@@ -1,0 +1,129 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  stack: string[];
+  href?: string;
+  linkLabel?: string;
+  featured?: boolean;
+}
+
+const { title, description, stack, href, linkLabel = 'View', featured = false } = Astro.props;
+---
+
+<article class:list={['tile', 'project', { 'is-featured': featured }]}>
+	{featured && <p class="project-eyebrow">Featured Project</p>}
+	<div class="project-head">
+		<h2>{title}</h2>
+		{
+			href && (
+				<a class="project-link" href={href} target="_blank" rel="noreferrer">
+					{linkLabel}
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path
+							d="M14 4h6v6h-2V7.4l-8.3 8.3-1.4-1.4L16.6 6H14V4Zm5 14v-5h2v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5v2H6v13h13Z"
+							fill="currentColor"
+						/>
+					</svg>
+				</a>
+			)
+		}
+	</div>
+	<p class="project-desc">{description}</p>
+	<div class="project-stack">
+		{stack.map((item) => <span>{item}</span>)}
+	</div>
+</article>
+
+<style>
+	.project {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+
+	.project.is-featured {
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--tile), white 4.5%),
+			var(--tile-alt)
+		);
+	}
+
+	.project-eyebrow {
+		margin: 0;
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.09em;
+		font-size: var(--label-xs);
+		color: var(--accent-soft);
+	}
+
+	.project-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.72rem;
+	}
+
+	.project-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.32rem;
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--muted);
+		border: 1px solid var(--border);
+		padding: 0.18rem 0.5rem;
+		border-radius: 999px;
+		background: var(--tile-strong);
+		white-space: nowrap;
+		transition:
+			color 0.2s ease,
+			border-color 0.2s ease;
+	}
+
+	.project-link:hover {
+		color: var(--accent-soft);
+		border-color: color-mix(in srgb, var(--accent-soft), var(--border) 40%);
+	}
+
+	.project-link svg {
+		width: 0.78rem;
+		height: 0.78rem;
+		display: block;
+	}
+
+	.project-desc {
+		margin: 0;
+		flex: 1;
+	}
+
+	.project-stack {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.42rem;
+		margin-top: auto;
+	}
+
+	.project-stack span {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.3rem 0.55rem;
+		border-radius: var(--radius-xs);
+		border: 1px solid var(--border);
+		background: var(--tile-strong);
+		font-size: var(--label-sm);
+		font-family: var(--font-mono);
+		letter-spacing: 0.02em;
+		color: var(--text-soft);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.project-link {
+			transition: none;
+		}
+	}
+</style>

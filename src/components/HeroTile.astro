@@ -13,10 +13,12 @@ const { profilePhoto, githubPath, mediaPath } = Astro.props;
 
 <section class="tile hero">
   <div class="hero-copy">
-    <h1>
-      Hi, I&apos;m Vishwas Parpattegar,<br />
-      Software Engineering Student @ UTS.
-    </h1>
+    <p class="hero-kicker" aria-hidden="true">vishwas@web <span class="hero-kicker-path">~</span> <span class="hero-kicker-symbol">&gt;</span> whoami</p>
+    <h1>Vishwas Parpattegar</h1>
+    <p class="hero-sub">
+      Software Engineering student @ UTS. I build CI/CD pipelines, container platforms, and
+      self-hosted infrastructure.
+    </p>
     <div class="socials">
       <a class="primary" href="https://realdishwash.github.io/resume/resume.pdf" target="_blank" rel="noreferrer">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -66,31 +68,50 @@ const { profilePhoto, githubPath, mediaPath } = Astro.props;
 		grid-template-columns: 1fr auto;
 		gap: 1.6rem;
 		align-items: center;
+		padding: 1.7rem 1.8rem;
 	}
 
 	.hero-copy {
 		min-width: 0;
 	}
 
-	h1 {
-		margin: 0;
-		font-size: clamp(1.3rem, 3.2vw, 1.95rem);
-		font-weight: 500;
-		font-family: var(--font-sans);
-		line-height: 1.36;
-		max-width: 28ch;
-		letter-spacing: -0.01em;
+	.hero-kicker {
+		margin: 0 0 0.55rem;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.02em;
+		color: #90b4ff;
 	}
 
-	h1 strong {
+	.hero-kicker-path {
+		color: color-mix(in srgb, var(--success), white 20%);
+	}
+
+	.hero-kicker-symbol {
+		color: var(--accent-soft);
+	}
+
+	h1 {
+		margin: 0;
+		font-size: clamp(2.2rem, 5vw, 3.2rem);
 		font-weight: 700;
+		font-family: var(--font-sans);
+		line-height: 1.08;
+		letter-spacing: -0.02em;
+	}
+
+	.hero-sub {
+		margin: 0.7rem 0 0;
+		max-width: 46ch;
+		font-size: clamp(0.98rem, 1.4vw, 1.08rem);
+		color: var(--text-soft);
 	}
 
 	.socials {
 		display: flex;
 		gap: 0.68rem;
 		flex-wrap: wrap;
-		margin-top: 1rem;
+		margin-top: 1.25rem;
 	}
 
 	.socials a {
@@ -116,7 +137,7 @@ const { profilePhoto, githubPath, mediaPath } = Astro.props;
 	}
 
 	.socials a.secondary {
-		border: 1px solid color-mix(in srgb, var(--accent), var(--border) 64%);
+		border: 1px solid var(--border);
 		background: var(--tile-strong);
 		color: var(--text-soft);
 	}
@@ -142,8 +163,8 @@ const { profilePhoto, githubPath, mediaPath } = Astro.props;
 	}
 
 	.avatar {
-		width: 180px;
-		height: 180px;
+		width: 190px;
+		height: 190px;
 		position: relative;
 		display: grid;
 		place-items: center;
@@ -186,6 +207,7 @@ const { profilePhoto, githubPath, mediaPath } = Astro.props;
 	@media (max-width: 760px) {
 		.hero {
 			grid-template-columns: 1fr;
+			padding: 1.35rem;
 		}
 
 		.avatar {

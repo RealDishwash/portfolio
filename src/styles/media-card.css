@@ -75,7 +75,7 @@
 	width: 66px;
 	height: 66px;
 	border-radius: 0;
-	border: 1px solid color-mix(in srgb, var(--accent), var(--border) 68%);
+	border: 1px solid var(--border);
 	background: var(--tile-strong);
 	overflow: hidden;
 }

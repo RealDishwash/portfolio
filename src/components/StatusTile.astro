@@ -1,12 +1,97 @@
 <article class="tile now-tile">
   <div class="status-top">
-    <h2>What I&apos;m Doing</h2>
+    <h2>Latest Activity</h2>
     <span class="dot" aria-hidden="true"></span>
   </div>
   <p id="status-message-text" class="status-message">
     Setting up Immich and SMB shares on my TrueNAS after installing drives and building a RAIDZ1 array.
   </p>
+  <p id="status-meta" class="status-meta muted" hidden></p>
 </article>
+
+<script>
+	const GITHUB_EVENTS_URL = 'https://api.github.com/users/RealDishwash/events/public?per_page=10';
+	const GITHUB_HEADERS = { Accept: 'application/vnd.github+json' };
+
+	type GithubEvent = {
+		type?: string;
+		created_at?: string;
+		repo?: { name?: string };
+		// Unauthenticated event payloads carry only the head SHA, not the commit list.
+		payload?: { head?: string };
+	};
+
+	type GithubCommitDetail = {
+		commit?: { message?: string };
+	};
+
+	const messageNode = document.querySelector<HTMLElement>('#status-message-text');
+	const metaNode = document.querySelector<HTMLElement>('#status-meta');
+
+	const relativeTime = (iso: string) => {
+		const elapsedMs = Date.now() - new Date(iso).getTime();
+		if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return '';
+		const minutes = Math.floor(elapsedMs / 60_000);
+		if (minutes < 1) return 'just now';
+		if (minutes < 60) return `${minutes}m ago`;
+		const hours = Math.floor(minutes / 60);
+		if (hours < 24) return `${hours}h ago`;
+		const days = Math.floor(hours / 24);
+		if (days < 30) return `${days}d ago`;
+		return `${Math.floor(days / 30)}mo ago`;
+	};
+
+	const renderCommit = (sha: string, message: string, event: GithubEvent) => {
+		if (!messageNode || !metaNode) return;
+
+		// Commit messages are external content: build with textContent, never innerHTML.
+		const hashNode = document.createElement('span');
+		hashNode.className = 'log-hash';
+		hashNode.textContent = sha.slice(0, 7);
+
+		const firstLine = message.split('\n')[0];
+		messageNode.textContent = '';
+		messageNode.classList.add('is-log');
+		messageNode.append(hashNode, ` ${firstLine}`);
+
+		const parts = [event.repo?.name, event.created_at ? relativeTime(event.created_at) : '']
+			.filter(Boolean)
+			.join(' • ');
+		if (parts) {
+			metaNode.textContent = parts;
+			metaNode.hidden = false;
+		}
+	};
+
+	const loadLatestCommit = async () => {
+		if (!messageNode || !metaNode) return;
+		try {
+			const eventsResponse = await fetch(GITHUB_EVENTS_URL, { headers: GITHUB_HEADERS });
+			if (!eventsResponse.ok) return;
+			const events = (await eventsResponse.json()) as GithubEvent[];
+			if (!Array.isArray(events)) return;
+			const pushEvent = events.find(
+				(event) => event.type === 'PushEvent' && event.payload?.head && event.repo?.name
+			);
+			const sha = pushEvent?.payload?.head;
+			const repo = pushEvent?.repo?.name;
+			if (!pushEvent || !sha || !repo) return;
+
+			const commitResponse = await fetch(
+				`https://api.github.com/repos/${repo}/commits/${encodeURIComponent(sha)}`,
+				{ headers: GITHUB_HEADERS }
+			);
+			if (!commitResponse.ok) return;
+			const detail = (await commitResponse.json()) as GithubCommitDetail;
+			const message = detail.commit?.message;
+			if (message) renderCommit(sha, message, pushEvent);
+		} catch {
+			// Keep the static fallback message.
+		}
+	};
+
+	void loadLatestCommit();
+</script>
 
 <style>
 	.now-tile {
@@ -56,6 +141,24 @@
 
 	.status-message.is-changing {
 		opacity: 0.18;
+	}
+
+	/* Applied when the message becomes a live git-log line. */
+	.status-message.is-log {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		overflow-wrap: anywhere;
+	}
+
+	.status-message :global(.log-hash) {
+		color: var(--accent-soft);
+	}
+
+	.status-meta {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		letter-spacing: 0.02em;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
