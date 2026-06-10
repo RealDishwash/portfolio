@@ -31,10 +31,13 @@ type TmdbMedia = {
 
 const TMDB_API_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w342';
-const DEFAULT_MEDIA_ID = '154385';
+// Obsession (2026)
+const DEFAULT_MEDIA_ID = '1339713';
+const DEFAULT_MEDIA_TYPE = 'movie';
 const CACHE_CONTROL = 'public, max-age=3600';
 
-const resolveMediaType = (value?: string) => (value === 'movie' ? 'movie' : 'tv');
+const resolveMediaType = (value?: string) =>
+  value === 'movie' || value === 'tv' ? value : DEFAULT_MEDIA_TYPE;
 
 const resolveYear = (media: TmdbMedia) => {
   const date = media.release_date || media.first_air_date || '';

@@ -78,7 +78,7 @@ Both endpoints run on Cloudflare Pages Functions, allow `GET`/`OPTIONS` only, an
 Optional:
 
 - `ALLOWED_ORIGIN` (comma-separated allowlist; defaults to same-origin only)
-- `FEATURED_MEDIA_TYPE` (`tv` or `movie`; defaults to `tv`)
-- `FEATURED_MEDIA_ID` (TMDB id; defaults to `154385`)
+- `FEATURED_MEDIA_TYPE` (`tv` or `movie`; defaults to `movie`)
+- `FEATURED_MEDIA_ID` (TMDB id; defaults to `1339713`, Obsession 2026)
 
 No public frontend environment variables are required.
