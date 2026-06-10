@@ -65,15 +65,17 @@
 
 .spotify-body {
 	display: grid;
-	grid-template-columns: 66px minmax(0, 1fr);
-	gap: 0.82rem;
+	grid-template-columns: 108px minmax(0, 1fr);
+	gap: 0.95rem;
 	align-items: center;
+	/* Fill the tile so the art can use the card's free vertical space. */
+	flex: 1;
 }
 
 .spotify-art-link {
 	display: block;
-	width: 66px;
-	height: 66px;
+	width: 108px;
+	height: 108px;
 	border-radius: 0;
 	border: 1px solid var(--border);
 	background: var(--tile-strong);
@@ -199,12 +201,12 @@
 
 @media (max-width: 380px) {
 	.spotify-body {
-		grid-template-columns: 56px minmax(0, 1fr);
+		grid-template-columns: 84px minmax(0, 1fr);
 	}
 
 	.spotify-art-link {
-		width: 56px;
-		height: 56px;
+		width: 84px;
+		height: 84px;
 	}
 
 	.media-tile .spotify-art-link {
