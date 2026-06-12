@@ -39,13 +39,13 @@ const featuredProject = {
 	stack: ['TrueNAS', 'RAIDZ1', 'Docker', 'Immich'],
 };
 
-const siteProject = {
-	title: 'This Website',
+const mapickProject = {
+	title: 'mapick',
 	description:
-		'Zero-framework Astro site with live Spotify, weather, and TMDB tiles, backed by Cloudflare Pages Functions with edge caching.',
-	stack: ['Astro', 'TypeScript', 'Cloudflare'],
-	href: 'https://github.com/RealDishwash/portfolio',
-	linkLabel: 'Source',
+		'A clean Best-of-3 map veto tool for the Valorant competitive map pool — bans, picks, and side selection following the official Bo3 order.',
+	stack: ['JavaScript', 'HTML', 'CSS'],
+	href: 'https://mapick.vishy.org',
+	linkLabel: 'View',
 };
 ---
 
@@ -57,7 +57,7 @@ const siteProject = {
 		<section class="cards">
 			<EngineeringSnapshotTile tools={tools} />
 			<ProjectTile featured {...featuredProject} />
-			<ProjectTile {...siteProject} />
+			<ProjectTile {...mapickProject} />
 			<StatusTile />
 			<CurrentConditionsTile />
 			<SpotifyTile spotifyPath={siSpotify.path} />
