@@ -1,0 +1,578 @@
+---
+// Live NBA + F1 results, sourced from ESPN's public scoreboard API via /api/live-sports.
+// Shows an in-progress game/race when one exists, otherwise the next scheduled one,
+// otherwise the most recent final.
+---
+
+<article class="tile live-sports" id="live-sports-tile">
+	<div class="ls-head">
+		<h2>Live Sports</h2>
+		<span class="ls-updated" id="ls-updated" aria-live="polite"></span>
+	</div>
+
+	<div class="ls-rows">
+		<a
+			class="ls-row"
+			id="nba-row"
+			data-state="loading"
+			href="https://www.espn.com/nba/scoreboard"
+			target="_blank"
+			rel="noreferrer"
+		>
+			<div class="ls-row-top">
+				<span class="ls-league ls-league-nba">
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						aria-hidden="true"
+					>
+						<circle cx="12" cy="12" r="9"></circle>
+						<path d="M5.65 5.65l12.7 12.7"></path>
+						<path d="M5.65 18.35l12.7 -12.7"></path>
+						<path d="M12 3a9 9 0 0 0 9 9a9 9 0 0 0 -9 9"></path>
+						<path d="M12 3a9 9 0 0 1 -9 9a9 9 0 0 1 9 9"></path>
+					</svg>
+					NBA
+				</span>
+				<span class="ls-badge" id="nba-badge">
+					<span class="ls-dot" aria-hidden="true"></span>
+					<span class="ls-badge-text" id="nba-badge-text">···</span>
+				</span>
+			</div>
+
+			<div class="ls-row-body ls-nba-body">
+				<div class="ls-team" id="nba-away">
+					<img class="ls-logo" id="nba-away-logo" alt="" aria-hidden="true" decoding="async" />
+					<span class="ls-team-name" id="nba-away-name">—</span>
+					<span class="ls-score" id="nba-away-score"></span>
+				</div>
+				<div class="ls-team" id="nba-home">
+					<img class="ls-logo" id="nba-home-logo" alt="" aria-hidden="true" decoding="async" />
+					<span class="ls-team-name" id="nba-home-name">—</span>
+					<span class="ls-score" id="nba-home-score"></span>
+				</div>
+			</div>
+
+			<p class="ls-status" id="nba-status">Loading…</p>
+		</a>
+
+		<a
+			class="ls-row"
+			id="f1-row"
+			data-state="loading"
+			href="https://www.espn.com/f1/schedule"
+			target="_blank"
+			rel="noreferrer"
+		>
+			<div class="ls-row-top">
+				<span class="ls-league ls-league-f1">
+					<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<rect x="4.3" y="3" width="1.5" height="18" rx="0.7"></rect>
+						<rect x="7" y="4.5" width="3" height="3"></rect>
+						<rect x="13" y="4.5" width="3" height="3"></rect>
+						<rect x="10" y="7.5" width="3" height="3"></rect>
+						<rect x="16" y="7.5" width="3" height="3"></rect>
+						<rect x="7" y="10.5" width="3" height="3"></rect>
+						<rect x="13" y="10.5" width="3" height="3"></rect>
+					</svg>
+					F1
+				</span>
+				<span class="ls-badge" id="f1-badge">
+					<span class="ls-dot" aria-hidden="true"></span>
+					<span class="ls-badge-text" id="f1-badge-text">···</span>
+				</span>
+			</div>
+
+			<div class="ls-row-body ls-f1-body">
+				<div class="ls-f1-meta">
+					<span class="ls-f1-title" id="f1-title">—</span>
+					<span class="ls-f1-sub" id="f1-sub"></span>
+				</div>
+				<ol class="ls-podium" id="f1-podium"></ol>
+			</div>
+
+			<p class="ls-status" id="f1-status">Loading…</p>
+		</a>
+	</div>
+</article>
+
+<script>
+	type Competitor = { name: string; abbr: string; logo: string; score: string };
+	type Leader = { pos: number; name: string };
+	type EventState = 'live' | 'upcoming' | 'final';
+
+	type SportEvent = {
+		league: 'NBA' | 'F1';
+		state: EventState;
+		title: string;
+		subtitle: string;
+		statusDetail: string;
+		startDate: string;
+		home: Competitor | null;
+		away: Competitor | null;
+		leaders: Leader[];
+		detailUrl: string;
+	};
+
+	type LiveSportsPayload = {
+		nba: SportEvent | null;
+		f1: SportEvent | null;
+		lastUpdated?: string;
+	};
+
+	const ENDPOINT = '/api/live-sports';
+	const POLL_INTERVAL_MS = 30_000;
+	const BADGE_LABELS: Record<string, string> = {
+		live: 'Live',
+		upcoming: 'Upcoming',
+		final: 'Final',
+		empty: 'Off',
+		error: 'Down',
+		loading: '···',
+	};
+	const PLACEHOLDER_LOGO = `data:image/svg+xml,${encodeURIComponent(
+		"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='#2f3a4b' stroke-width='2'/></svg>"
+	)}`;
+
+	const tileNode = document.querySelector<HTMLElement>('#live-sports-tile');
+
+	if (tileNode) {
+		const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+		const pick = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+
+		const formatStart = (iso: string) => {
+			const ms = Date.parse(iso);
+			if (!Number.isFinite(ms)) return 'Time TBD';
+			return new Intl.DateTimeFormat(undefined, {
+				weekday: 'short',
+				day: 'numeric',
+				month: 'short',
+				hour: 'numeric',
+				minute: '2-digit',
+			}).format(new Date(ms));
+		};
+
+		// Brief fade so refreshed scores don't pop in jarringly.
+		const swap = (node: HTMLElement | null, mutate: () => void) => {
+			if (!node) return;
+			if (prefersReducedMotion) {
+				mutate();
+				return;
+			}
+			node.classList.add('is-swapping');
+			window.setTimeout(() => {
+				mutate();
+				window.setTimeout(() => node.classList.remove('is-swapping'), 140);
+			}, 110);
+		};
+
+		const setBadge = (rowId: string, textId: string, state: string) => {
+			const row = pick(rowId);
+			const text = pick(textId);
+			if (row) row.dataset.state = state;
+			if (text) text.textContent = BADGE_LABELS[state] ?? BADGE_LABELS.error;
+		};
+
+		const setText = (id: string, value: string) => {
+			const node = pick(id);
+			if (node) node.textContent = value;
+		};
+
+		const setLogo = (id: string, url: string) => {
+			const node = pick<HTMLImageElement>(id);
+			if (node) node.src = url || PLACEHOLDER_LOGO;
+		};
+
+		const renderNba = (event: SportEvent | null) => {
+			const row = pick<HTMLAnchorElement>('nba-row');
+			swap(pick('nba-row'), () => {
+				if (!event) {
+					setBadge('nba-row', 'nba-badge-text', 'empty');
+					setText('nba-away-name', 'No NBA games');
+					setText('nba-home-name', '');
+					setText('nba-away-score', '');
+					setText('nba-home-score', '');
+					setLogo('nba-away-logo', '');
+					setLogo('nba-home-logo', '');
+					setText('nba-status', 'Nothing scheduled right now.');
+					return;
+				}
+
+				if (row && event.detailUrl) row.href = event.detailUrl;
+				setBadge('nba-row', 'nba-badge-text', event.state);
+
+				const showScore = event.state !== 'upcoming';
+				const away = event.away;
+				const home = event.home;
+				setText('nba-away-name', away?.name ?? 'TBD');
+				setText('nba-home-name', home?.name ?? 'TBD');
+				setText('nba-away-score', showScore ? (away?.score ?? '') : '');
+				setText('nba-home-score', showScore ? (home?.score ?? '') : '');
+				setLogo('nba-away-logo', away?.logo ?? '');
+				setLogo('nba-home-logo', home?.logo ?? '');
+				setText(
+					'nba-status',
+					event.state === 'upcoming'
+						? formatStart(event.startDate)
+						: event.statusDetail || BADGE_LABELS[event.state]
+				);
+			});
+		};
+
+		const renderF1 = (event: SportEvent | null) => {
+			const row = pick<HTMLAnchorElement>('f1-row');
+			swap(pick('f1-row'), () => {
+				const podium = pick<HTMLOListElement>('f1-podium');
+				if (!event) {
+					setBadge('f1-row', 'f1-badge-text', 'empty');
+					setText('f1-title', 'No race weekend');
+					setText('f1-sub', '');
+					if (podium) podium.replaceChildren();
+					setText('f1-status', 'No upcoming races right now.');
+					return;
+				}
+
+				if (row && event.detailUrl) row.href = event.detailUrl;
+				setBadge('f1-row', 'f1-badge-text', event.state);
+				setText('f1-title', event.title);
+				setText('f1-sub', event.subtitle);
+
+				if (podium) {
+					podium.replaceChildren();
+					if (event.state !== 'upcoming' && event.leaders.length) {
+						for (const leader of event.leaders) {
+							const li = document.createElement('li');
+							li.className = 'ls-podium-item';
+							const pos = document.createElement('span');
+							pos.className = 'ls-podium-pos';
+							pos.textContent = String(leader.pos);
+							const name = document.createElement('span');
+							name.className = 'ls-podium-name';
+							name.textContent = leader.name;
+							li.append(pos, name);
+							podium.append(li);
+						}
+					}
+				}
+
+				setText(
+					'f1-status',
+					event.state === 'upcoming'
+						? formatStart(event.startDate)
+						: event.statusDetail || BADGE_LABELS[event.state]
+				);
+			});
+		};
+
+		const setError = () => {
+			setBadge('nba-row', 'nba-badge-text', 'error');
+			setBadge('f1-row', 'f1-badge-text', 'error');
+			setText('nba-status', 'Scores unavailable right now.');
+			setText('f1-status', 'Scores unavailable right now.');
+		};
+
+		const setUpdated = (iso?: string) => {
+			const ms = iso ? Date.parse(iso) : Date.now();
+			const node = pick('ls-updated');
+			if (!node) return;
+			node.textContent = `Updated ${new Intl.DateTimeFormat(undefined, {
+				hour: 'numeric',
+				minute: '2-digit',
+			}).format(new Date(Number.isFinite(ms) ? ms : Date.now()))}`;
+		};
+
+		let isRequestInFlight = false;
+
+		const load = async () => {
+			if (isRequestInFlight) return;
+			isRequestInFlight = true;
+			try {
+				const response = await fetch(ENDPOINT, { headers: { Accept: 'application/json' } });
+				if (!response.ok) throw new Error('live-sports request failed');
+				const payload = (await response.json()) as LiveSportsPayload;
+				renderNba(payload.nba);
+				renderF1(payload.f1);
+				setUpdated(payload.lastUpdated);
+			} catch {
+				setError();
+			} finally {
+				isRequestInFlight = false;
+			}
+		};
+
+		void load();
+		window.setInterval(() => {
+			void load();
+		}, POLL_INTERVAL_MS);
+	}
+</script>
+
+<style>
+	.live-sports {
+		display: flex;
+		flex-direction: column;
+		gap: 0.7rem;
+	}
+
+	.ls-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.7rem;
+	}
+
+	.ls-updated {
+		font-family: var(--font-mono);
+		font-size: var(--label-xs);
+		letter-spacing: 0.03em;
+		color: var(--muted);
+		white-space: nowrap;
+	}
+
+	.ls-rows {
+		display: grid;
+		gap: 0.6rem;
+		flex: 1;
+	}
+
+	.ls-row {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.7rem 0.78rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		background: var(--tile-strong);
+		transition:
+			opacity 0.18s ease,
+			transform 0.18s ease,
+			border-color 0.2s ease;
+	}
+
+	.ls-row:hover {
+		border-color: color-mix(in srgb, var(--accent), var(--border) 40%);
+	}
+
+	.ls-row.is-swapping {
+		opacity: 0.2;
+		transform: translateY(4px);
+	}
+
+	.ls-row-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.6rem;
+	}
+
+	.ls-league {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		font-weight: 500;
+		letter-spacing: 0.09em;
+		text-transform: uppercase;
+		color: var(--text-soft);
+	}
+
+	.ls-league svg {
+		width: 0.95rem;
+		height: 0.95rem;
+		display: block;
+	}
+
+	.ls-league-nba {
+		color: color-mix(in srgb, var(--accent), var(--text) 30%);
+	}
+
+	.ls-league-f1 {
+		color: var(--accent);
+	}
+
+	.ls-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.34rem;
+		font-family: var(--font-mono);
+		font-size: var(--label-xs);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--muted);
+		border: 1px solid var(--border);
+		padding: 0.16rem 0.44rem;
+		border-radius: 999px;
+		background: var(--tile);
+		white-space: nowrap;
+	}
+
+	.ls-dot {
+		display: none;
+		width: 0.42rem;
+		height: 0.42rem;
+		border-radius: 999px;
+		background: var(--success);
+	}
+
+	.ls-row[data-state='live'] .ls-badge {
+		color: color-mix(in srgb, var(--success), white 22%);
+		border-color: color-mix(in srgb, var(--success), var(--border) 45%);
+		background: color-mix(in srgb, var(--success), var(--tile-strong) 90%);
+	}
+
+	.ls-row[data-state='live'] .ls-dot {
+		display: block;
+		animation: lsPulse 1.6s ease-in-out infinite;
+	}
+
+	.ls-row[data-state='final'] .ls-badge {
+		color: var(--text-soft);
+	}
+
+	.ls-row[data-state='error'] .ls-badge {
+		color: var(--accent-soft);
+		border-color: color-mix(in srgb, var(--accent-soft), var(--border) 46%);
+	}
+
+	/* NBA: two stacked team lines. */
+	.ls-nba-body {
+		display: grid;
+		gap: 0.3rem;
+	}
+
+	.ls-team {
+		display: grid;
+		grid-template-columns: 1.4rem minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.ls-logo {
+		width: 1.4rem;
+		height: 1.4rem;
+		object-fit: contain;
+	}
+
+	.ls-team-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: var(--text-sm);
+		color: var(--text);
+	}
+
+	.ls-score {
+		font-family: var(--font-mono);
+		font-size: 1.02rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--text);
+		min-width: 1.4em;
+		text-align: right;
+	}
+
+	/* The leading team in a finished/live game reads brightest. */
+	.ls-row[data-state='live'] .ls-score,
+	.ls-row[data-state='final'] .ls-score {
+		color: var(--text);
+	}
+
+	/* F1: race meta + podium. */
+	.ls-f1-body {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+
+	.ls-f1-meta {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		min-width: 0;
+	}
+
+	.ls-f1-title {
+		font-size: var(--text-sm);
+		font-weight: 600;
+		color: var(--text);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.ls-f1-sub {
+		font-size: var(--text-xs);
+		color: var(--muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.ls-podium {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.ls-podium-item {
+		display: grid;
+		grid-template-columns: 1.2rem minmax(0, 1fr);
+		align-items: center;
+		gap: 0.5rem;
+		font-size: var(--text-sm);
+	}
+
+	.ls-podium-pos {
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		font-weight: 600;
+		color: var(--accent-soft);
+		text-align: center;
+	}
+
+	.ls-podium-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--text-soft);
+	}
+
+	.ls-status {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		letter-spacing: 0.02em;
+		color: var(--text-soft);
+	}
+
+	@keyframes lsPulse {
+		0%,
+		100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+		50% {
+			opacity: 0.45;
+			transform: scale(0.82);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ls-row {
+			transition: none;
+		}
+
+		.ls-row[data-state='live'] .ls-dot {
+			animation: none;
+		}
+	}
+</style>

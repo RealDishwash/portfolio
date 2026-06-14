@@ -7,6 +7,7 @@ import CurrentConditionsTile from '../components/CurrentConditionsTile.astro';
 import StatusTile from '../components/StatusTile.astro';
 import SpotifyTile from '../components/SpotifyTile.astro';
 import FeaturedMediaTile from '../components/FeaturedMediaTile.astro';
+import LiveSportsTile from '../components/LiveSportsTile.astro';
 import TerminalTile from '../components/TerminalTile.astro';
 import SignatureTile from '../components/SignatureTile.astro';
 import profilePhoto from '../assets/profile-photo.png';
@@ -62,6 +63,7 @@ const mapickProject = {
 			<CurrentConditionsTile />
 			<SpotifyTile spotifyPath={siSpotify.path} />
 			<FeaturedMediaTile mediaPath={siThemoviedatabase.path} />
+			<LiveSportsTile />
 			<TerminalTile />
 			<SignatureTile />
 		</section>
@@ -236,7 +238,7 @@ const mapickProject = {
 			'about about about featured featured featured'
 			'project project project now now now'
 			'meta meta spotify spotify media media'
-			'terminal terminal terminal terminal terminal terminal'
+			'terminal terminal terminal terminal live live'
 			'signature signature signature signature signature signature';
 		align-items: stretch;
 	}
@@ -269,6 +271,10 @@ const mapickProject = {
 		grid-area: media;
 	}
 
+	.cards > .live-sports {
+		grid-area: live;
+	}
+
 	.cards > .terminal {
 		grid-area: terminal;
 	}
@@ -289,7 +295,7 @@ const mapickProject = {
 				'featured project'
 				'now meta'
 				'spotify media'
-				'terminal terminal'
+				'terminal live'
 				'signature signature';
 		}
 	}
@@ -319,6 +325,7 @@ const mapickProject = {
 				'meta'
 				'spotify'
 				'media'
+				'live'
 				'terminal'
 				'signature';
 		}

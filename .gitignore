@@ -35,6 +35,7 @@ bun-debug.log*
 .cache/
 .parcel-cache/
 .turbo/
+.wrangler/
 
 # testing/coverage
 coverage/
