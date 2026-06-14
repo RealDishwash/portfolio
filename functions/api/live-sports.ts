@@ -186,7 +186,7 @@ export const mapF1Event = (event: EspnEvent): SportEvent | null => {
     .slice(0, 3)
     .map((c, index) => ({
       pos: c.order ?? index + 1,
-      name: c.athlete?.shortName || c.athlete?.displayName || 'TBD',
+      name: c.athlete?.displayName || c.athlete?.shortName || 'TBD',
     }))
     .filter((leader) => leader.name !== 'TBD');
 
