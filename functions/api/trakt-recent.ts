@@ -53,6 +53,13 @@ type TraktHistoryItem = {
   episode?: TraktEpisode;
 };
 
+// Cloudflare's edge replaces 5xx bodies from Pages Functions with a generic
+// error page, which hides the real cause. Return failures as HTTP 200 with an
+// `ok: false` body so they stay debuggable; the tile treats a missing title as
+// an error, so its behaviour is unchanged.
+const jsonError = (body: Record<string, unknown>, origin: string) =>
+  json({ ok: false, ...body }, 200, origin);
+
 const TRAKT_API_URL = 'https://api.trakt.tv';
 const TMDB_API_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w342';
@@ -170,7 +177,14 @@ export const onRequest = async (context: FunctionContext) => {
     }
 
     if (!env.TRAKT_CLIENT_ID || !env.TRAKT_USERNAME) {
-      return json({ error: 'trakt_not_configured' }, 500, origin);
+      return jsonError(
+        {
+          error: 'trakt_not_configured',
+          hasClientId: Boolean(env.TRAKT_CLIENT_ID),
+          hasUsername: Boolean(env.TRAKT_USERNAME),
+        },
+        origin
+      );
     }
 
     const response = await fetch(
@@ -186,7 +200,11 @@ export const onRequest = async (context: FunctionContext) => {
     );
 
     if (!response.ok) {
-      return json({ error: 'trakt_request_failed', status: response.status }, 502, origin);
+      const detail = await response.text().catch(() => '');
+      return jsonError(
+        { error: 'trakt_request_failed', status: response.status, detail: detail.slice(0, 200) },
+        origin
+      );
     }
 
     const history = (await response.json()) as TraktHistoryItem[];
@@ -194,12 +212,15 @@ export const onRequest = async (context: FunctionContext) => {
     const payload = item ? await buildPayload(item, env) : null;
 
     if (!payload) {
-      return json({ error: 'no_recent_history' }, 404, origin);
+      return jsonError({ error: 'no_recent_history' }, origin);
     }
 
-    return json(payload, 200, origin, CACHE_CONTROL);
+    return json({ ok: true, ...payload }, 200, origin, CACHE_CONTROL);
   } catch (error) {
     console.error('trakt-recent function failed', error);
-    return json({ error: 'trakt_unavailable' }, 502, origin);
+    return jsonError(
+      { error: 'trakt_unavailable', detail: error instanceof Error ? error.message : String(error) },
+      origin
+    );
   }
 };
