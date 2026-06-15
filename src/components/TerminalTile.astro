@@ -8,9 +8,11 @@
       <span class="terminal-control">&#10005;</span>
     </div>
   </div>
-  <div class="terminal-output" id="terminal-output" aria-live="polite">
-    <p class="terminal-line terminal-line-muted">Last login: today on pts/0</p>
-    <p class="terminal-line terminal-line-muted">Type <span class="terminal-kbd">help</span> and press enter.</p>
+  <div class="terminal-scroll">
+    <div class="terminal-output" id="terminal-output" aria-live="polite">
+      <p class="terminal-line terminal-line-muted">Last login: today on pts/0</p>
+      <p class="terminal-line terminal-line-muted">Type <span class="terminal-kbd">help</span> and press enter.</p>
+    </div>
   </div>
   <form class="terminal-prompt" id="terminal-form" autocomplete="off">
     <label class="terminal-line" for="terminal-input">
@@ -43,6 +45,14 @@
 		// Read another tile's live DOM so the terminal can report current state.
 		const readText = (selector: string) => document.querySelector(selector)?.textContent?.trim() ?? '';
 
+		// Keep the scrollback bounded so a long session can't grow the DOM forever.
+		const MAX_ROWS = 60;
+		const trimOutput = () => {
+			while (outputNode.childElementCount > MAX_ROWS) {
+				outputNode.firstElementChild?.remove();
+			}
+		};
+
 		type Line = { text: string; tone?: 'muted' | 'accent' | 'success'; href?: string };
 
 		const print = (lines: Line[]) => {
@@ -63,6 +73,7 @@
 				}
 				outputNode.append(row);
 			}
+			trimOutput();
 			outputNode.scrollTop = outputNode.scrollHeight;
 		};
 
@@ -83,6 +94,7 @@
 			cmd.textContent = command;
 			row.append(user, path, symbol, cmd);
 			outputNode.append(row);
+			trimOutput();
 		};
 
 		const COMMANDS: Record<string, () => Line[]> = {
@@ -288,6 +300,9 @@
 		flex-direction: column;
 		background: #11151d;
 		height: 100%;
+		/* Let the tile be shorter than its content so the output scrolls inside
+		   rather than growing the whole grid row as commands accumulate. */
+		min-height: 0;
 		cursor: text;
 	}
 
@@ -340,11 +355,19 @@
 		line-height: 1;
 	}
 
-	.terminal-output {
-		margin-top: 0;
-		padding: 0.8rem 0.85rem 0.4rem;
-		flex: 1;
+	/* The scroll area flexes to the height the sibling tile sets for the row; its
+	   only child is absolutely positioned so the growing output never feeds back
+	   into the grid row's intrinsic height. */
+	.terminal-scroll {
+		position: relative;
+		flex: 1 1 0;
 		min-height: 0;
+	}
+
+	.terminal-output {
+		position: absolute;
+		inset: 0;
+		padding: 0.8rem 0.85rem 0.4rem;
 		overflow-y: auto;
 		background: #0c1118;
 		scrollbar-width: thin;
@@ -474,6 +497,15 @@
 
 	.terminal-output :global(.term-link:hover) {
 		text-decoration: underline;
+	}
+
+	/* When tiles stop sharing a row and size to content, give the scroll area a
+	   definite height so it still has somewhere to scroll. */
+	@media (max-width: 720px) {
+		.terminal-scroll {
+			flex: none;
+			height: 15rem;
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {

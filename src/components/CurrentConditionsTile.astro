@@ -14,24 +14,8 @@
       <span class="metric-chip" id="weather-feels">Feels --&deg;</span>
       <span class="metric-chip" id="weather-humidity">Humidity --%</span>
       <span class="metric-chip" id="weather-wind">Wind -- km/h</span>
-      <button class="metric-chip metric-toggle" id="weather-unit" type="button" aria-label="Toggle temperature units">
-        &deg;C
-      </button>
     </div>
-    <button
-      class="weather-hourly-toggle"
-      id="weather-hourly-toggle"
-      type="button"
-      aria-expanded="false"
-      aria-controls="weather-hourly"
-      hidden
-    >
-      <span>Hourly</span>
-      <svg viewBox="0 0 24 24" aria-hidden="true" class="weather-chevron">
-        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-      </svg>
-    </button>
-    <ol class="weather-hourly" id="weather-hourly" hidden></ol>
+    <ol class="weather-hourly" id="weather-hourly" aria-label="Hourly forecast"></ol>
     <p class="muted">Sydney - Australia</p>
     <p class="weather-updated muted" id="weather-updated">Updating...</p>
   </div>
@@ -40,7 +24,6 @@
 <script>
 	const WEATHER_URL =
 		'https://api.open-meteo.com/v1/forecast?latitude=-33.8688&longitude=151.2093&current=temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m&hourly=temperature_2m,weather_code&forecast_days=2&timezone=Australia%2FSydney';
-	const UNIT_STORAGE_KEY = 'cc-units';
 
 	type OpenMeteoCurrent = {
 		temperature_2m?: number;
@@ -60,8 +43,6 @@
 		current?: OpenMeteoCurrent;
 		hourly?: OpenMeteoHourly;
 	};
-
-	type Units = 'metric' | 'imperial';
 
 	const weatherIconFromCode = (code: number) => {
 		const svg = (paths: string) =>
@@ -110,26 +91,13 @@
 	const weatherHumidityNode = document.querySelector<HTMLElement>('#weather-humidity');
 	const weatherWindNode = document.querySelector<HTMLElement>('#weather-wind');
 	const weatherUpdatedNode = document.querySelector<HTMLElement>('#weather-updated');
-	const unitToggleNode = document.querySelector<HTMLButtonElement>('#weather-unit');
-	const hourlyToggleNode = document.querySelector<HTMLButtonElement>('#weather-hourly-toggle');
 	const hourlyListNode = document.querySelector<HTMLOListElement>('#weather-hourly');
 
 	let lastWeatherUpdateAt: number | null = null;
 	let hasWeatherResult = false;
-
-	// Raw metric readings kept around so unit toggling re-renders without a refetch.
-	let current: { tempC: number; feelsC: number; humidity: number; windKmh: number; code: number } | null =
-		null;
 	let hourly: Array<{ time: string; tempC: number; code: number }> = [];
 
-	let units: Units =
-		(typeof localStorage !== 'undefined' && localStorage.getItem(UNIT_STORAGE_KEY)) === 'imperial'
-			? 'imperial'
-			: 'metric';
-
-	const toF = (c: number) => (c * 9) / 5 + 32;
-	const toMph = (kmh: number) => kmh * 0.621371;
-	const tempLabel = (c: number) => `${Math.round(units === 'imperial' ? toF(c) : c)}°`;
+	const tempLabel = (c: number) => `${Math.round(c)}°`;
 
 	const renderTime = () => {
 		if (!timeNode) return;
@@ -186,10 +154,6 @@
 		return `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`;
 	};
 
-	const renderUnitToggle = () => {
-		if (unitToggleNode) unitToggleNode.textContent = units === 'imperial' ? '°F' : '°C';
-	};
-
 	const renderHourly = () => {
 		if (!hourlyListNode) return;
 		hourlyListNode.replaceChildren();
@@ -211,7 +175,6 @@
 			li.append(time, icon, temp);
 			hourlyListNode.append(li);
 		}
-		if (hourlyToggleNode) hourlyToggleNode.hidden = slice.length === 0;
 	};
 
 	const renderWeather = () => {
@@ -223,17 +186,21 @@
 			weatherIconNode.textContent = '--';
 			weatherFeelsNode.textContent = 'Feels --°';
 			weatherHumidityNode.textContent = 'Humidity --%';
-			weatherWindNode.textContent = `Wind -- ${units === 'imperial' ? 'mph' : 'km/h'}`;
+			weatherWindNode.textContent = 'Wind -- km/h';
+			renderHourly();
 			return;
 		}
 		weatherTempNode.textContent = tempLabel(current.tempC);
 		weatherIconNode.innerHTML = weatherIconFromCode(current.code);
 		weatherFeelsNode.textContent = `Feels ${tempLabel(current.feelsC)}`;
 		weatherHumidityNode.textContent = `Humidity ${Math.round(current.humidity)}%`;
-		const wind = units === 'imperial' ? toMph(current.windKmh) : current.windKmh;
-		weatherWindNode.textContent = `Wind ${Math.round(wind)} ${units === 'imperial' ? 'mph' : 'km/h'}`;
+		weatherWindNode.textContent = `Wind ${Math.round(current.windKmh)} km/h`;
 		renderHourly();
 	};
+
+	// Raw readings kept around so the clock-driven re-render reuses them.
+	let current: { tempC: number; feelsC: number; humidity: number; windKmh: number; code: number } | null =
+		null;
 
 	const loadWeather = async () => {
 		if (!weatherTempNode || !weatherUpdatedNode) return;
@@ -277,32 +244,12 @@
 			current = null;
 			hourly = [];
 			renderWeather();
-			if (hourlyToggleNode) hourlyToggleNode.hidden = true;
 			lastWeatherUpdateAt = null;
 			hasWeatherResult = true;
 			renderWeatherFreshness();
 		}
 	};
 
-	unitToggleNode?.addEventListener('click', () => {
-		units = units === 'metric' ? 'imperial' : 'metric';
-		try {
-			localStorage.setItem(UNIT_STORAGE_KEY, units);
-		} catch {
-			/* storage may be blocked; the toggle still works for the session */
-		}
-		renderUnitToggle();
-		renderWeather();
-	});
-
-	hourlyToggleNode?.addEventListener('click', () => {
-		if (!hourlyListNode) return;
-		const expanded = hourlyToggleNode.getAttribute('aria-expanded') === 'true';
-		hourlyToggleNode.setAttribute('aria-expanded', String(!expanded));
-		hourlyListNode.hidden = expanded;
-	});
-
-	renderUnitToggle();
 	renderTime();
 	renderWeatherFreshness();
 	void loadWeather();
@@ -417,7 +364,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.42rem;
-		margin: 0 0 0.42rem;
+		margin: 0 0 0.6rem;
 	}
 
 	.metric-chip {
@@ -434,57 +381,6 @@
 		color: var(--text-soft);
 	}
 
-	.metric-toggle {
-		margin-left: auto;
-		cursor: pointer;
-		min-width: 2.4em;
-		justify-content: center;
-		transition:
-			border-color 0.2s ease,
-			color 0.2s ease;
-	}
-
-	.metric-toggle:hover {
-		color: var(--text);
-		border-color: color-mix(in srgb, var(--accent-soft), var(--border) 40%);
-	}
-
-	.weather-hourly-toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		margin: 0 0 0.5rem;
-		padding: 0.2rem 0.5rem 0.2rem 0.55rem;
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		background: var(--tile-strong);
-		color: var(--text-soft);
-		font-family: var(--font-mono);
-		font-size: var(--label-sm);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			border-color 0.2s ease,
-			color 0.2s ease;
-	}
-
-	.weather-hourly-toggle:hover {
-		color: var(--text);
-		border-color: color-mix(in srgb, var(--accent-soft), var(--border) 40%);
-	}
-
-	.weather-chevron {
-		width: 0.85rem;
-		height: 0.85rem;
-		display: block;
-		transition: transform 0.2s ease;
-	}
-
-	.weather-hourly-toggle[aria-expanded='true'] .weather-chevron {
-		transform: rotate(180deg);
-	}
-
 	.weather-hourly {
 		list-style: none;
 		margin: 0 0 0.6rem;
@@ -492,10 +388,6 @@
 		display: grid;
 		grid-template-columns: repeat(6, minmax(0, 1fr));
 		gap: 0.3rem;
-	}
-
-	.weather-hourly[hidden] {
-		display: none;
 	}
 
 	/* Hourly cells are injected at runtime, so they need :global() to be styled. */
@@ -547,14 +439,6 @@
 	@media (max-width: 640px) {
 		.time-head {
 			align-items: flex-start;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.metric-toggle,
-		.weather-hourly-toggle,
-		.weather-chevron {
-			transition: none;
 		}
 	}
 </style>
