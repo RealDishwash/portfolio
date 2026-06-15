@@ -1,0 +1,205 @@
+import {
+  corsHeaders,
+  isOriginAllowed,
+  json,
+  resolveAllowedOrigins,
+  resolveOrigin,
+} from '../_lib/http';
+
+interface Env {
+  TRAKT_CLIENT_ID?: string;
+  TRAKT_USERNAME?: string;
+  TMDB_API_KEY?: string;
+  ALLOWED_ORIGIN?: string;
+}
+
+type FunctionContext = {
+  request: Request;
+  env: Env;
+};
+
+type TraktIds = {
+  slug?: string;
+  tmdb?: number;
+};
+
+type TraktMovie = {
+  title?: string;
+  year?: number;
+  overview?: string;
+  ids?: TraktIds;
+};
+
+type TraktShow = {
+  title?: string;
+  year?: number;
+  overview?: string;
+  ids?: TraktIds;
+};
+
+type TraktEpisode = {
+  season?: number;
+  number?: number;
+  title?: string;
+  overview?: string;
+  ids?: TraktIds;
+};
+
+type TraktHistoryItem = {
+  watched_at?: string;
+  type?: 'movie' | 'episode';
+  movie?: TraktMovie;
+  show?: TraktShow;
+  episode?: TraktEpisode;
+};
+
+const TRAKT_API_URL = 'https://api.trakt.tv';
+const TMDB_API_URL = 'https://api.themoviedb.org/3';
+const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w342';
+// Recent history shifts slowly; share one upstream call per visitor wave.
+const CACHE_CONTROL = 'public, max-age=600, s-maxage=600';
+
+const relativeWatched = (watchedAt?: string) => {
+  if (!watchedAt) return 'Watched';
+  const watchedMs = Date.parse(watchedAt);
+  if (Number.isNaN(watchedMs)) return 'Watched';
+
+  const diffSeconds = Math.max(0, Math.round((Date.now() - watchedMs) / 1000));
+  if (diffSeconds < 60) return 'Just now';
+
+  const diffMinutes = Math.round(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  const diffWeeks = Math.round(diffDays / 7);
+  if (diffWeeks < 5) return `${diffWeeks}w ago`;
+
+  const diffMonths = Math.round(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths}mo ago`;
+
+  return `${Math.round(diffDays / 365)}y ago`;
+};
+
+const fetchTmdbPoster = async (
+  apiKey: string | undefined,
+  kind: 'movie' | 'tv',
+  tmdbId?: number
+) => {
+  if (!apiKey || !tmdbId) return '';
+  try {
+    const response = await fetch(
+      `${TMDB_API_URL}/${kind}/${tmdbId}?api_key=${encodeURIComponent(apiKey)}`,
+      { headers: { Accept: 'application/json' } }
+    );
+    if (!response.ok) return '';
+    const data = (await response.json()) as { poster_path?: string };
+    return data.poster_path ? `${TMDB_IMAGE_BASE_URL}${data.poster_path}` : '';
+  } catch {
+    return '';
+  }
+};
+
+const buildPayload = async (item: TraktHistoryItem, env: Env) => {
+  const stateLabel = relativeWatched(item.watched_at);
+
+  if (item.type === 'movie' && item.movie) {
+    const { movie } = item;
+    const year = movie.year ? String(movie.year) : '';
+    const slug = movie.ids?.slug;
+    return {
+      title: movie.title || 'Unknown title',
+      subtitle: ['Movie', year].filter(Boolean).join(' • '),
+      overview: movie.overview || '',
+      imageUrl: await fetchTmdbPoster(env.TMDB_API_KEY, 'movie', movie.ids?.tmdb),
+      linkUrl: slug ? `https://trakt.tv/movies/${slug}` : 'https://trakt.tv',
+      stateLabel,
+      watchedAt: item.watched_at || '',
+      mediaType: 'movie' as const,
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+
+  if (item.type === 'episode' && item.show && item.episode) {
+    const { show, episode } = item;
+    const season = episode.season ?? 0;
+    const number = episode.number ?? 0;
+    const code = `S${season}E${number}`;
+    const showSlug = show.ids?.slug;
+    return {
+      title: show.title || 'Unknown show',
+      subtitle: [code, episode.title].filter(Boolean).join(' · '),
+      overview: episode.overview || show.overview || '',
+      imageUrl: await fetchTmdbPoster(env.TMDB_API_KEY, 'tv', show.ids?.tmdb),
+      linkUrl: showSlug
+        ? `https://trakt.tv/shows/${showSlug}/seasons/${season}/episodes/${number}`
+        : 'https://trakt.tv',
+      stateLabel,
+      watchedAt: item.watched_at || '',
+      mediaType: 'episode' as const,
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+
+  return null;
+};
+
+export const onRequest = async (context: FunctionContext) => {
+  const { request, env } = context;
+  let origin = '*';
+
+  try {
+    const allowedOrigins = resolveAllowedOrigins(request, env.ALLOWED_ORIGIN);
+    origin = resolveOrigin(request, allowedOrigins);
+
+    if (!isOriginAllowed(request, allowedOrigins)) {
+      return json({ error: 'origin_not_allowed' }, 403, origin);
+    }
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    if (request.method !== 'GET') {
+      return json({ error: 'method_not_allowed' }, 405, origin);
+    }
+
+    if (!env.TRAKT_CLIENT_ID || !env.TRAKT_USERNAME) {
+      return json({ error: 'trakt_not_configured' }, 500, origin);
+    }
+
+    const response = await fetch(
+      `${TRAKT_API_URL}/users/${encodeURIComponent(env.TRAKT_USERNAME)}/history?limit=1&extended=full`,
+      {
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'trakt-api-version': '2',
+          'trakt-api-key': env.TRAKT_CLIENT_ID,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return json({ error: 'trakt_request_failed', status: response.status }, 502, origin);
+    }
+
+    const history = (await response.json()) as TraktHistoryItem[];
+    const item = Array.isArray(history) ? history[0] : undefined;
+    const payload = item ? await buildPayload(item, env) : null;
+
+    if (!payload) {
+      return json({ error: 'no_recent_history' }, 404, origin);
+    }
+
+    return json(payload, 200, origin, CACHE_CONTROL);
+  } catch (error) {
+    console.error('trakt-recent function failed', error);
+    return json({ error: 'trakt_unavailable' }, 502, origin);
+  }
+};

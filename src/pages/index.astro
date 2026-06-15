@@ -6,7 +6,7 @@ import ProjectTile from '../components/ProjectTile.astro';
 import CurrentConditionsTile from '../components/CurrentConditionsTile.astro';
 import StatusTile from '../components/StatusTile.astro';
 import SpotifyTile from '../components/SpotifyTile.astro';
-import FeaturedMediaTile from '../components/FeaturedMediaTile.astro';
+import RecentlyWatchedTile from '../components/RecentlyWatchedTile.astro';
 import LiveSportsTile from '../components/LiveSportsTile.astro';
 import TerminalTile from '../components/TerminalTile.astro';
 import SignatureTile from '../components/SignatureTile.astro';
@@ -21,7 +21,6 @@ import {
 	siSpotify,
 	siTrakt,
 	siTruenas,
-	siThemoviedatabase,
 } from 'simple-icons';
 
 const tools = [
@@ -62,7 +61,7 @@ const mapickProject = {
 			<StatusTile />
 			<CurrentConditionsTile />
 			<SpotifyTile spotifyPath={siSpotify.path} />
-			<FeaturedMediaTile mediaPath={siThemoviedatabase.path} />
+			<RecentlyWatchedTile traktPath={siTrakt.path} />
 			<LiveSportsTile />
 			<TerminalTile />
 			<SignatureTile />

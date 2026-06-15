@@ -24,9 +24,9 @@ Astro 5 single-page portfolio site (one route: `src/pages/index.astro`) deployed
 
 ### Tiles
 
-The homepage is a bento grid of self-contained `src/components/*Tile.astro` components. Each tile holds its own markup, scoped `<style>`, and — for live widgets (CurrentConditions, Spotify, FeaturedMedia, Terminal) — a `<script>` that polls a data source and mutates the tile's DOM by element ID. `index.astro` holds only the grid layout, page-level/shared styles (`.tile` base, `.cards` grid areas, typography), and the staggered intro animation.
+The homepage is a bento grid of self-contained `src/components/*Tile.astro` components. Each tile holds its own markup, scoped `<style>`, and — for live widgets (CurrentConditions, Spotify, RecentlyWatched, Terminal) — a `<script>` that polls a data source and mutates the tile's DOM by element ID. `index.astro` holds only the grid layout, page-level/shared styles (`.tile` base, `.cards` grid areas, typography), and the staggered intro animation.
 
-The Spotify and Featured Media tiles share one card layout via `src/styles/media-card.css` (a plain global stylesheet imported by both — kept out of scoped styles because the two tiles use identical class names).
+The Spotify and Recently Watched tiles share one card layout via `src/styles/media-card.css` (a plain global stylesheet imported by both — kept out of scoped styles because the two tiles use identical class names).
 
 Gotchas:
 - Runtime-injected markup (e.g. the weather icon SVG) doesn't receive Astro's scope class — style it with `:global()`.
@@ -34,13 +34,13 @@ Gotchas:
 
 ### API functions (`functions/`)
 
-File-based routes served by Cloudflare Pages Functions at `/api/<name>`: `spotify-now-playing` (OAuth refresh-token flow) and `featured-media` (TMDB). Shared CORS/origin-allowlist and JSON helpers live in `functions/_lib/http.ts` (underscore-prefixed paths are not routed) — new endpoints should use them and keep the same posture: same-origin only by default, optional comma-separated `ALLOWED_ORIGIN` override, `no-store` on error responses.
+File-based routes served by Cloudflare Pages Functions at `/api/<name>`: `spotify-now-playing` (OAuth refresh-token flow) and `trakt-recent` (most recent Trakt history item, with posters resolved through TMDB). Shared CORS/origin-allowlist and JSON helpers live in `functions/_lib/http.ts` (underscore-prefixed paths are not routed) — new endpoints should use them and keep the same posture: same-origin only by default, optional comma-separated `ALLOWED_ORIGIN` override, `no-store` on error responses.
 
 The Spotify function uses `caches.default` (Cloudflare Cache API, keyed by synthetic internal URLs) two ways: the full payload is edge-cached for 10s so all visitors share one upstream request, and the access token is persisted across isolate recycling. `wrangler pages dev` supports this locally.
 
 `functions/` has its own `tsconfig.json` (Cloudflare worker types, no DOM lib) and is excluded from the root tsconfig.
 
-Secrets (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN`, `TMDB_API_KEY`, optional `ALLOWED_ORIGIN`, `FEATURED_MEDIA_TYPE`, `FEATURED_MEDIA_ID`) live in Cloudflare Pages project settings, not in a local `.env`. No public frontend environment variables exist.
+Secrets (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN`, `TRAKT_CLIENT_ID`, `TRAKT_USERNAME`, `TMDB_API_KEY`, optional `ALLOWED_ORIGIN`) live in Cloudflare Pages project settings, not in a local `.env`. No public frontend environment variables exist.
 
 ### Layout
 
