@@ -122,44 +122,6 @@ const fetchTmdbPoster = async (
   }
 };
 
-type TmdbSeason = { season_number?: number; episode_count?: number };
-
-type TmdbShowInfo = {
-  posterUrl: string;
-  totalEpisodes: number | null;
-  seasons: TmdbSeason[];
-};
-
-// Pulls the poster plus the season/episode breakdown in one call so the tile can
-// show how far into the whole series the current episode sits.
-const fetchTmdbShow = async (
-  apiKey: string | undefined,
-  tmdbId?: number
-): Promise<TmdbShowInfo> => {
-  const empty: TmdbShowInfo = { posterUrl: '', totalEpisodes: null, seasons: [] };
-  if (!apiKey || !tmdbId) return empty;
-  try {
-    const response = await fetch(
-      `${TMDB_API_URL}/tv/${tmdbId}?api_key=${encodeURIComponent(apiKey)}`,
-      { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } }
-    );
-    if (!response.ok) return empty;
-    const data = (await response.json()) as {
-      poster_path?: string;
-      number_of_episodes?: number;
-      seasons?: TmdbSeason[];
-    };
-    return {
-      posterUrl: data.poster_path ? `${TMDB_IMAGE_BASE_URL}${data.poster_path}` : '',
-      totalEpisodes:
-        typeof data.number_of_episodes === 'number' ? data.number_of_episodes : null,
-      seasons: Array.isArray(data.seasons) ? data.seasons : [],
-    };
-  } catch {
-    return empty;
-  }
-};
-
 const traktHeaders = (clientId: string) => ({
   Accept: 'application/json',
   'Content-Type': 'application/json',
@@ -251,28 +213,15 @@ const buildPayload = async (item: TraktHistoryItem, env: Env, live = false) => {
     const pad = (value: number) => String(value).padStart(2, '0');
     const code = `S${pad(season)}E${pad(number)}`;
     const showSlug = show.ids?.slug;
-    const [tv, rating] = await Promise.all([
-      fetchTmdbShow(env.TMDB_API_KEY, show.ids?.tmdb),
+    const [imageUrl, rating] = await Promise.all([
+      fetchTmdbPoster(env.TMDB_API_KEY, 'tv', show.ids?.tmdb),
       fetchUserRating(env, 'shows', show.ids?.trakt),
     ]);
-
-    // Real seasons only (TMDB lists specials as season 0).
-    const realSeasons = tv.seasons.filter((s) => (s.season_number ?? 0) >= 1);
-    const seasonTotal = realSeasons.length || null;
-    // Cumulative position of this episode across the whole run, e.g. S2E5 -> 15.
-    let episodeNumber: number | null = null;
-    if (tv.totalEpisodes && season > 0 && number > 0) {
-      const before = realSeasons
-        .filter((s) => (s.season_number ?? 0) < season)
-        .reduce((sum, s) => sum + (s.episode_count ?? 0), 0);
-      episodeNumber = Math.min(before + number, tv.totalEpisodes);
-    }
-
     return {
       title: show.title || 'Unknown show',
       subtitle: [code, episode.title].filter(Boolean).join(' · '),
       overview: episode.overview || show.overview || '',
-      imageUrl: tv.posterUrl,
+      imageUrl,
       rating,
       linkUrl: showSlug
         ? `https://trakt.tv/shows/${showSlug}/seasons/${season}/episodes/${number}`
@@ -281,10 +230,6 @@ const buildPayload = async (item: TraktHistoryItem, env: Env, live = false) => {
       isWatching: live,
       progressMs,
       durationMs,
-      seasonNumber: season > 0 ? season : null,
-      seasonTotal,
-      episodeNumber,
-      episodeTotal: tv.totalEpisodes,
       watchedAt: item.watched_at || '',
       mediaType: 'episode' as const,
       lastUpdated: new Date().toISOString(),

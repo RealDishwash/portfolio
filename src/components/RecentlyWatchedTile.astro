@@ -53,15 +53,6 @@ const { traktPath } = Astro.props;
         </div>
         <span class="player-time player-time-duration" id="media-time-duration">-:--</span>
       </div>
-      <div class="series-progress" id="media-series" hidden>
-        <div class="series-progress-head">
-          <span id="media-series-episode">Episode</span>
-          <span id="media-series-season"></span>
-        </div>
-        <div class="series-track">
-          <span class="series-fill" id="media-series-fill"></span>
-        </div>
-      </div>
     </div>
   </div>
   <span class="spotify-corner-link" aria-hidden="true">
@@ -83,10 +74,6 @@ const { traktPath } = Astro.props;
 		progressMs?: number | null;
 		durationMs?: number | null;
 		lastUpdated?: string;
-		seasonNumber?: number | null;
-		seasonTotal?: number | null;
-		episodeNumber?: number | null;
-		episodeTotal?: number | null;
 	};
 
 	type MediaViewState = {
@@ -100,10 +87,6 @@ const { traktPath } = Astro.props;
 		isWatching: boolean;
 		progressMs: number | null;
 		durationMs: number | null;
-		seasonNumber: number | null;
-		seasonTotal: number | null;
-		episodeNumber: number | null;
-		episodeTotal: number | null;
 	};
 
 	const DEFAULT_TRAKT_URL = 'https://trakt.tv/';
@@ -130,10 +113,6 @@ const { traktPath } = Astro.props;
 	const timeCurrentNode = document.querySelector<HTMLElement>('#media-time-current');
 	const timeDurationNode = document.querySelector<HTMLElement>('#media-time-duration');
 	const progressFillNode = document.querySelector<HTMLElement>('#media-progress-fill');
-	const seriesNode = document.querySelector<HTMLElement>('#media-series');
-	const seriesEpisodeNode = document.querySelector<HTMLElement>('#media-series-episode');
-	const seriesSeasonNode = document.querySelector<HTMLElement>('#media-series-season');
-	const seriesFillNode = document.querySelector<HTMLElement>('#media-series-fill');
 	const linkNodes = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-media-link]'));
 
 	if (
@@ -150,10 +129,6 @@ const { traktPath } = Astro.props;
 		timeCurrentNode &&
 		timeDurationNode &&
 		progressFillNode &&
-		seriesNode &&
-		seriesEpisodeNode &&
-		seriesSeasonNode &&
-		seriesFillNode &&
 		linkNodes.length
 	) {
 		const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -223,21 +198,6 @@ const { traktPath } = Astro.props;
 			progressFillNode.style.width = `${(shownMs / progressDurationMs) * 100}%`;
 		};
 
-		// Position of the current episode across the whole series (seasons/episodes).
-		const renderSeries = (viewState: MediaViewState) => {
-			const { episodeNumber, episodeTotal, seasonNumber, seasonTotal } = viewState;
-			if (!episodeNumber || !episodeTotal || episodeTotal <= 0) {
-				seriesNode.hidden = true;
-				return;
-			}
-			const pct = Math.max(0, Math.min(100, (episodeNumber / episodeTotal) * 100));
-			seriesNode.hidden = false;
-			seriesEpisodeNode.textContent = `Episode ${episodeNumber} of ${episodeTotal}`;
-			seriesSeasonNode.textContent =
-				seasonNumber && seasonTotal ? `Season ${seasonNumber} of ${seasonTotal}` : '';
-			seriesFillNode.style.width = `${pct}%`;
-		};
-
 		const applyView = (viewState: MediaViewState) => {
 			tileNode.dataset.mediaState = viewState.mediaState;
 			headingNode.textContent =
@@ -258,7 +218,6 @@ const { traktPath } = Astro.props;
 			progressBaseAt = Date.now();
 			progressDurationMs = viewState.durationMs;
 			renderProgress();
-			renderSeries(viewState);
 		};
 
 		let lastViewState: MediaViewState | null = null;
@@ -313,10 +272,6 @@ const { traktPath } = Astro.props;
 				isWatching: false,
 				progressMs: null,
 				durationMs: null,
-				seasonNumber: null,
-				seasonTotal: null,
-				episodeNumber: null,
-				episodeTotal: null,
 			});
 		};
 
@@ -332,10 +287,6 @@ const { traktPath } = Astro.props;
 				isWatching: false,
 				progressMs: null,
 				durationMs: null,
-				seasonNumber: null,
-				seasonTotal: null,
-				episodeNumber: null,
-				episodeTotal: null,
 			});
 		};
 
@@ -363,10 +314,6 @@ const { traktPath } = Astro.props;
 				isWatching: watching,
 				progressMs,
 				durationMs: typeof payload.durationMs === 'number' ? payload.durationMs : null,
-				seasonNumber: typeof payload.seasonNumber === 'number' ? payload.seasonNumber : null,
-				seasonTotal: typeof payload.seasonTotal === 'number' ? payload.seasonTotal : null,
-				episodeNumber: typeof payload.episodeNumber === 'number' ? payload.episodeNumber : null,
-				episodeTotal: typeof payload.episodeTotal === 'number' ? payload.episodeTotal : null,
 			});
 		};
 
@@ -433,48 +380,4 @@ const { traktPath } = Astro.props;
 		color: #f2c14e;
 	}
 
-	/* How far the current episode sits through the whole series. */
-	.series-progress {
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-		margin-top: 0.55rem;
-	}
-
-	.series-progress[hidden] {
-		display: none;
-	}
-
-	.series-progress-head {
-		display: flex;
-		justify-content: space-between;
-		gap: 0.6rem;
-		font-family: var(--font-mono);
-		font-size: var(--label-sm);
-		letter-spacing: 0.02em;
-		color: var(--text-soft);
-		white-space: nowrap;
-	}
-
-	.series-track {
-		height: 4px;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--border), black 30%);
-		overflow: hidden;
-	}
-
-	.series-fill {
-		display: block;
-		height: 100%;
-		width: 0%;
-		border-radius: inherit;
-		background: var(--accent);
-		transition: width 0.4s linear;
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.series-fill {
-			transition: none;
-		}
-	}
 </style>
