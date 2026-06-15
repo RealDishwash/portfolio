@@ -322,42 +322,6 @@ const { spotifyPath } = Astro.props;
 		min-width: 0;
 	}
 
-	.player-progress {
-		display: flex;
-		align-items: center;
-		gap: 0.55rem;
-		margin-top: 0.7rem;
-	}
-
-	.player-time {
-		font-family: var(--font-mono);
-		font-size: var(--label-sm);
-		letter-spacing: 0.02em;
-		color: var(--text-soft);
-		min-width: 2.6em;
-	}
-
-	.player-time-duration {
-		text-align: right;
-	}
-
-	.player-track-bar {
-		flex: 1;
-		height: 4px;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--border), black 30%);
-		overflow: hidden;
-	}
-
-	.player-track-fill {
-		display: block;
-		height: 100%;
-		width: 0%;
-		border-radius: inherit;
-		background: var(--success);
-		transition: width 0.4s linear;
-	}
-
 	.player-controls {
 		display: flex;
 		align-items: center;
@@ -402,9 +366,4 @@ const { spotifyPath } = Astro.props;
 		display: none;
 	}
 
-	@media (prefers-reduced-motion: reduce) {
-		.player-track-fill {
-			transition: none;
-		}
-	}
 </style>

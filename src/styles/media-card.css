@@ -161,6 +161,48 @@
 	white-space: nowrap;
 }
 
+/* Playback progress bar, shared by the Spotify (track) and Recently Watched
+   (live scrobble) tiles. */
+.player-progress {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	margin-top: 0.7rem;
+}
+
+.player-progress[hidden] {
+	display: none;
+}
+
+.player-time {
+	font-family: var(--font-mono);
+	font-size: var(--label-sm);
+	letter-spacing: 0.02em;
+	color: var(--text-soft);
+	min-width: 2.6em;
+}
+
+.player-time-duration {
+	text-align: right;
+}
+
+.player-track-bar {
+	flex: 1;
+	height: 4px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--border), black 30%);
+	overflow: hidden;
+}
+
+.player-track-fill {
+	display: block;
+	height: 100%;
+	width: 0%;
+	border-radius: inherit;
+	background: var(--success);
+	transition: width 0.4s linear;
+}
+
 .spotify-state.is-state-bump {
 	animation: spotifyStateBump 0.24s ease;
 }
@@ -204,5 +246,9 @@
 
 	.spotify-state.is-state-bump {
 		animation: none;
+	}
+
+	.player-track-fill {
+		transition: none;
 	}
 }
