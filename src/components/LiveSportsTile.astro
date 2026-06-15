@@ -10,7 +10,9 @@
 		<span class="ls-updated" id="ls-updated" aria-live="polite"></span>
 	</div>
 
-	<div class="ls-rows">
+	<div class="ls-carousel">
+		<div class="ls-viewport" id="ls-viewport">
+			<div class="ls-track" id="ls-track">
 		<a
 			class="ls-row"
 			id="nba-row"
@@ -89,6 +91,20 @@
 
 			<p class="ls-status" id="f1-status">Loading…</p>
 		</a>
+			</div>
+		</div>
+		<div class="ls-nav">
+			<button class="ls-arrow" id="ls-prev" type="button" aria-label="Show previous sport">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+			</button>
+			<div class="ls-dots">
+				<button class="ls-dot-btn" type="button" data-index="0" aria-label="Show NBA"></button>
+				<button class="ls-dot-btn" type="button" data-index="1" aria-label="Show Formula 1"></button>
+			</div>
+			<button class="ls-arrow" id="ls-next" type="button" aria-label="Show next sport">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+			</button>
+		</div>
 	</div>
 
 	<img
@@ -318,6 +334,66 @@
 			}
 		};
 
+		// NBA / F1 carousel: one slide at a time, swap via arrows, dots, or swipe.
+		const track = pick('ls-track');
+		const viewport = pick('ls-viewport');
+		const dotBtns = Array.from(
+			document.querySelectorAll<HTMLButtonElement>('#live-sports-tile .ls-dot-btn')
+		);
+		const SLIDE_COUNT = 2;
+		let slideIndex = 0;
+
+		const updateCarousel = () => {
+			if (track) track.style.transform = `translateX(-${slideIndex * 100}%)`;
+			dotBtns.forEach((dot, i) => {
+				dot.classList.toggle('is-active', i === slideIndex);
+				dot.setAttribute('aria-current', String(i === slideIndex));
+			});
+		};
+
+		const goTo = (next: number) => {
+			slideIndex = ((next % SLIDE_COUNT) + SLIDE_COUNT) % SLIDE_COUNT;
+			updateCarousel();
+		};
+
+		pick<HTMLButtonElement>('ls-prev')?.addEventListener('click', () => goTo(slideIndex - 1));
+		pick<HTMLButtonElement>('ls-next')?.addEventListener('click', () => goTo(slideIndex + 1));
+		for (const dot of dotBtns) {
+			dot.addEventListener('click', () => goTo(Number(dot.dataset.index)));
+		}
+
+		if (viewport) {
+			let pointerStartX: number | null = null;
+			let didSwipe = false;
+			viewport.addEventListener('pointerdown', (event) => {
+				pointerStartX = event.clientX;
+				didSwipe = false;
+			});
+			viewport.addEventListener('pointerup', (event) => {
+				if (pointerStartX === null) return;
+				const dx = event.clientX - pointerStartX;
+				pointerStartX = null;
+				if (Math.abs(dx) > 40) {
+					didSwipe = true;
+					goTo(slideIndex + (dx < 0 ? 1 : -1));
+				}
+			});
+			// A swipe shouldn't also open the slide's ESPN link.
+			viewport.addEventListener(
+				'click',
+				(event) => {
+					if (didSwipe) {
+						event.preventDefault();
+						event.stopPropagation();
+						didSwipe = false;
+					}
+				},
+				true
+			);
+		}
+
+		updateCarousel();
+
 		void load();
 		window.setInterval(() => {
 			void load();
@@ -365,13 +441,29 @@
 		white-space: nowrap;
 	}
 
-	.ls-rows {
-		display: grid;
-		gap: 0.6rem;
+	.ls-carousel {
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
 		flex: 1;
+		min-height: 0;
+	}
+
+	.ls-viewport {
+		overflow: hidden;
+		flex: 1;
+		min-height: 0;
+	}
+
+	.ls-track {
+		display: flex;
+		height: 100%;
+		transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
 	}
 
 	.ls-row {
+		flex: 0 0 100%;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
@@ -392,6 +484,69 @@
 	.ls-row.is-swapping {
 		opacity: 0.2;
 		transform: translateY(4px);
+	}
+
+	.ls-nav {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+	}
+
+	.ls-arrow {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.45rem;
+		height: 1.45rem;
+		padding: 0;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: var(--tile-strong);
+		color: var(--text-soft);
+		cursor: pointer;
+		transition:
+			color 0.2s ease,
+			border-color 0.2s ease;
+	}
+
+	.ls-arrow:hover {
+		color: var(--text);
+		border-color: color-mix(in srgb, var(--accent), var(--border) 40%);
+	}
+
+	.ls-arrow svg {
+		width: 0.9rem;
+		height: 0.9rem;
+		display: block;
+	}
+
+	.ls-dots {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.42rem;
+	}
+
+	.ls-dot-btn {
+		width: 0.48rem;
+		height: 0.48rem;
+		padding: 0;
+		border: 0;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--border), white 10%);
+		cursor: pointer;
+		transition:
+			background 0.2s ease,
+			transform 0.2s ease;
+	}
+
+	.ls-dot-btn:hover {
+		background: var(--text-soft);
+	}
+
+	.ls-dot-btn.is-active {
+		background: var(--accent);
+		transform: scale(1.3);
 	}
 
 	.ls-row-top {
@@ -623,7 +778,10 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.ls-row {
+		.ls-row,
+		.ls-track,
+		.ls-dot-btn,
+		.ls-arrow {
 			transition: none;
 		}
 
