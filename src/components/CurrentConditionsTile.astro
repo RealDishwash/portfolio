@@ -4,17 +4,34 @@
       <h2>Current Conditions</h2>
       <div class="weather-chip" aria-live="polite">
         <span id="weather-icon" aria-hidden="true">--</span>
-        <span id="weather-temp">-- C</span>
+        <span id="weather-temp">--&deg;</span>
       </div>
     </div>
     <div class="clock-row">
       <p class="clock" id="sydney-time">--:--:--</p>
     </div>
     <div class="weather-metrics" aria-live="polite">
-      <span class="metric-chip" id="weather-feels">Feels -- C</span>
+      <span class="metric-chip" id="weather-feels">Feels --&deg;</span>
       <span class="metric-chip" id="weather-humidity">Humidity --%</span>
       <span class="metric-chip" id="weather-wind">Wind -- km/h</span>
+      <button class="metric-chip metric-toggle" id="weather-unit" type="button" aria-label="Toggle temperature units">
+        &deg;C
+      </button>
     </div>
+    <button
+      class="weather-hourly-toggle"
+      id="weather-hourly-toggle"
+      type="button"
+      aria-expanded="false"
+      aria-controls="weather-hourly"
+      hidden
+    >
+      <span>Hourly</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="weather-chevron">
+        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+    </button>
+    <ol class="weather-hourly" id="weather-hourly" hidden></ol>
     <p class="muted">Sydney - Australia</p>
     <p class="weather-updated muted" id="weather-updated">Updating...</p>
   </div>
@@ -22,7 +39,8 @@
 
 <script>
 	const WEATHER_URL =
-		'https://api.open-meteo.com/v1/forecast?latitude=-33.8688&longitude=151.2093&current=temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m&timezone=Australia%2FSydney';
+		'https://api.open-meteo.com/v1/forecast?latitude=-33.8688&longitude=151.2093&current=temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m&hourly=temperature_2m,weather_code&forecast_days=2&timezone=Australia%2FSydney';
+	const UNIT_STORAGE_KEY = 'cc-units';
 
 	type OpenMeteoCurrent = {
 		temperature_2m?: number;
@@ -32,9 +50,18 @@
 		wind_speed_10m?: number;
 	};
 
+	type OpenMeteoHourly = {
+		time?: string[];
+		temperature_2m?: number[];
+		weather_code?: number[];
+	};
+
 	type OpenMeteoResponse = {
 		current?: OpenMeteoCurrent;
+		hourly?: OpenMeteoHourly;
 	};
+
+	type Units = 'metric' | 'imperial';
 
 	const weatherIconFromCode = (code: number) => {
 		const svg = (paths: string) =>
@@ -83,12 +110,29 @@
 	const weatherHumidityNode = document.querySelector<HTMLElement>('#weather-humidity');
 	const weatherWindNode = document.querySelector<HTMLElement>('#weather-wind');
 	const weatherUpdatedNode = document.querySelector<HTMLElement>('#weather-updated');
+	const unitToggleNode = document.querySelector<HTMLButtonElement>('#weather-unit');
+	const hourlyToggleNode = document.querySelector<HTMLButtonElement>('#weather-hourly-toggle');
+	const hourlyListNode = document.querySelector<HTMLOListElement>('#weather-hourly');
+
 	let lastWeatherUpdateAt: number | null = null;
 	let hasWeatherResult = false;
 
+	// Raw metric readings kept around so unit toggling re-renders without a refetch.
+	let current: { tempC: number; feelsC: number; humidity: number; windKmh: number; code: number } | null =
+		null;
+	let hourly: Array<{ time: string; tempC: number; code: number }> = [];
+
+	let units: Units =
+		(typeof localStorage !== 'undefined' && localStorage.getItem(UNIT_STORAGE_KEY)) === 'imperial'
+			? 'imperial'
+			: 'metric';
+
+	const toF = (c: number) => (c * 9) / 5 + 32;
+	const toMph = (kmh: number) => kmh * 0.621371;
+	const tempLabel = (c: number) => `${Math.round(units === 'imperial' ? toF(c) : c)}°`;
+
 	const renderTime = () => {
 		if (!timeNode) return;
-		const now = new Date();
 		const value = new Intl.DateTimeFormat('en-AU', {
 			timeZone: 'Australia/Sydney',
 			hour: '2-digit',
@@ -96,7 +140,7 @@
 			second: '2-digit',
 			hour12: false,
 			timeZoneName: 'short',
-		}).format(now);
+		}).format(new Date());
 		timeNode.textContent = value;
 	};
 
@@ -122,57 +166,143 @@
 		weatherUpdatedNode.textContent = 'Updated 1h+ ago';
 	};
 
-	const loadWeather = async () => {
-		if (
-			!weatherTempNode ||
-			!weatherIconNode ||
-			!weatherFeelsNode ||
-			!weatherHumidityNode ||
-			!weatherWindNode ||
-			!weatherUpdatedNode
-		) {
+	// Sydney-local "YYYY-MM-DDTHH" key for lining the hourly series up with "now".
+	const sydneyHourKey = () => {
+		const parts = new Intl.DateTimeFormat('en-CA', {
+			timeZone: 'Australia/Sydney',
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			hourCycle: 'h23',
+		}).formatToParts(new Date());
+		const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+		return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}`;
+	};
+
+	const hourLabel = (time: string) => {
+		const h = Number(time.slice(11, 13));
+		if (!Number.isFinite(h)) return '';
+		return `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`;
+	};
+
+	const renderUnitToggle = () => {
+		if (unitToggleNode) unitToggleNode.textContent = units === 'imperial' ? '°F' : '°C';
+	};
+
+	const renderHourly = () => {
+		if (!hourlyListNode) return;
+		hourlyListNode.replaceChildren();
+		const nowKey = sydneyHourKey();
+		const startIndex = hourly.findIndex((entry) => entry.time.slice(0, 13) >= nowKey);
+		const slice = startIndex >= 0 ? hourly.slice(startIndex, startIndex + 6) : [];
+		for (const entry of slice) {
+			const li = document.createElement('li');
+			li.className = 'wx-hour';
+			const time = document.createElement('span');
+			time.className = 'wx-hour-time';
+			time.textContent = hourLabel(entry.time);
+			const icon = document.createElement('span');
+			icon.className = 'wx-hour-icon';
+			icon.innerHTML = weatherIconFromCode(entry.code);
+			const temp = document.createElement('span');
+			temp.className = 'wx-hour-temp';
+			temp.textContent = tempLabel(entry.tempC);
+			li.append(time, icon, temp);
+			hourlyListNode.append(li);
+		}
+		if (hourlyToggleNode) hourlyToggleNode.hidden = slice.length === 0;
+	};
+
+	const renderWeather = () => {
+		if (!weatherTempNode || !weatherIconNode || !weatherFeelsNode || !weatherHumidityNode || !weatherWindNode) {
 			return;
 		}
+		if (!current) {
+			weatherTempNode.textContent = '--°';
+			weatherIconNode.textContent = '--';
+			weatherFeelsNode.textContent = 'Feels --°';
+			weatherHumidityNode.textContent = 'Humidity --%';
+			weatherWindNode.textContent = `Wind -- ${units === 'imperial' ? 'mph' : 'km/h'}`;
+			return;
+		}
+		weatherTempNode.textContent = tempLabel(current.tempC);
+		weatherIconNode.innerHTML = weatherIconFromCode(current.code);
+		weatherFeelsNode.textContent = `Feels ${tempLabel(current.feelsC)}`;
+		weatherHumidityNode.textContent = `Humidity ${Math.round(current.humidity)}%`;
+		const wind = units === 'imperial' ? toMph(current.windKmh) : current.windKmh;
+		weatherWindNode.textContent = `Wind ${Math.round(wind)} ${units === 'imperial' ? 'mph' : 'km/h'}`;
+		renderHourly();
+	};
+
+	const loadWeather = async () => {
+		if (!weatherTempNode || !weatherUpdatedNode) return;
 		try {
 			const response = await fetch(WEATHER_URL);
 			if (!response.ok) throw new Error('weather request failed');
 			const data = (await response.json()) as OpenMeteoResponse;
-			const current = data.current;
-			if (!current) throw new Error('missing weather payload');
-			const temperature = Number(current.temperature_2m);
-			const weatherCode = Number(current.weather_code);
-			const feelsLike = Number(current.apparent_temperature);
-			const humidity = Number(current.relative_humidity_2m);
-			const wind = Number(current.wind_speed_10m);
+			const cur = data.current;
+			if (!cur) throw new Error('missing weather payload');
+			const tempC = Number(cur.temperature_2m);
+			const code = Number(cur.weather_code);
+			const feelsC = Number(cur.apparent_temperature);
+			const humidity = Number(cur.relative_humidity_2m);
+			const windKmh = Number(cur.wind_speed_10m);
 			if (
-				!Number.isFinite(temperature) ||
-				!Number.isFinite(weatherCode) ||
-				!Number.isFinite(feelsLike) ||
+				!Number.isFinite(tempC) ||
+				!Number.isFinite(code) ||
+				!Number.isFinite(feelsC) ||
 				!Number.isFinite(humidity) ||
-				!Number.isFinite(wind)
+				!Number.isFinite(windKmh)
 			) {
 				throw new Error('invalid weather payload');
 			}
-			weatherTempNode.textContent = `${Math.round(temperature)} C`;
-			weatherIconNode.innerHTML = weatherIconFromCode(weatherCode);
-			weatherFeelsNode.textContent = `Feels ${Math.round(feelsLike)} C`;
-			weatherHumidityNode.textContent = `Humidity ${Math.round(humidity)}%`;
-			weatherWindNode.textContent = `Wind ${Math.round(wind)} km/h`;
+
+			current = { tempC, feelsC, humidity, windKmh, code };
+
+			const times = data.hourly?.time ?? [];
+			const temps = data.hourly?.temperature_2m ?? [];
+			const codes = data.hourly?.weather_code ?? [];
+			hourly = times.map((time, index) => ({
+				time,
+				tempC: Number(temps[index]),
+				code: Number(codes[index]),
+			}));
+
 			lastWeatherUpdateAt = Date.now();
 			hasWeatherResult = true;
+			renderWeather();
 			renderWeatherFreshness();
 		} catch {
-			weatherTempNode.textContent = '-- C';
-			weatherIconNode.textContent = '--';
-			weatherFeelsNode.textContent = 'Feels -- C';
-			weatherHumidityNode.textContent = 'Humidity --%';
-			weatherWindNode.textContent = 'Wind -- km/h';
+			current = null;
+			hourly = [];
+			renderWeather();
+			if (hourlyToggleNode) hourlyToggleNode.hidden = true;
 			lastWeatherUpdateAt = null;
 			hasWeatherResult = true;
 			renderWeatherFreshness();
 		}
 	};
 
+	unitToggleNode?.addEventListener('click', () => {
+		units = units === 'metric' ? 'imperial' : 'metric';
+		try {
+			localStorage.setItem(UNIT_STORAGE_KEY, units);
+		} catch {
+			/* storage may be blocked; the toggle still works for the session */
+		}
+		renderUnitToggle();
+		renderWeather();
+	});
+
+	hourlyToggleNode?.addEventListener('click', () => {
+		if (!hourlyListNode) return;
+		const expanded = hourlyToggleNode.getAttribute('aria-expanded') === 'true';
+		hourlyToggleNode.setAttribute('aria-expanded', String(!expanded));
+		hourlyListNode.hidden = expanded;
+	});
+
+	renderUnitToggle();
 	renderTime();
 	renderWeatherFreshness();
 	void loadWeather();
@@ -304,6 +434,109 @@
 		color: var(--text-soft);
 	}
 
+	.metric-toggle {
+		margin-left: auto;
+		cursor: pointer;
+		min-width: 2.4em;
+		justify-content: center;
+		transition:
+			border-color 0.2s ease,
+			color 0.2s ease;
+	}
+
+	.metric-toggle:hover {
+		color: var(--text);
+		border-color: color-mix(in srgb, var(--accent-soft), var(--border) 40%);
+	}
+
+	.weather-hourly-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		margin: 0 0 0.5rem;
+		padding: 0.2rem 0.5rem 0.2rem 0.55rem;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: var(--tile-strong);
+		color: var(--text-soft);
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		cursor: pointer;
+		transition:
+			border-color 0.2s ease,
+			color 0.2s ease;
+	}
+
+	.weather-hourly-toggle:hover {
+		color: var(--text);
+		border-color: color-mix(in srgb, var(--accent-soft), var(--border) 40%);
+	}
+
+	.weather-chevron {
+		width: 0.85rem;
+		height: 0.85rem;
+		display: block;
+		transition: transform 0.2s ease;
+	}
+
+	.weather-hourly-toggle[aria-expanded='true'] .weather-chevron {
+		transform: rotate(180deg);
+	}
+
+	.weather-hourly {
+		list-style: none;
+		margin: 0 0 0.6rem;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+		gap: 0.3rem;
+	}
+
+	.weather-hourly[hidden] {
+		display: none;
+	}
+
+	/* Hourly cells are injected at runtime, so they need :global() to be styled. */
+	.weather-hourly :global(.wx-hour) {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.28rem;
+		padding: 0.4rem 0.2rem;
+		border-radius: var(--radius-xs);
+		border: 1px solid color-mix(in srgb, var(--border), white 6%);
+		background: color-mix(in srgb, var(--tile-strong), white 2%);
+	}
+
+	.weather-hourly :global(.wx-hour-time) {
+		font-family: var(--font-mono);
+		font-size: var(--label-xs);
+		color: var(--muted);
+		letter-spacing: 0.02em;
+	}
+
+	.weather-hourly :global(.wx-hour-icon) {
+		display: inline-flex;
+		width: 1.05rem;
+		height: 1.05rem;
+		color: var(--text-soft);
+	}
+
+	.weather-hourly :global(.wx-hour-icon svg) {
+		width: 1.05rem;
+		height: 1.05rem;
+		display: block;
+	}
+
+	.weather-hourly :global(.wx-hour-temp) {
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		color: var(--text);
+		letter-spacing: 0.02em;
+	}
+
 	.weather-updated {
 		margin: 0.15rem 0 0;
 		font-family: var(--font-mono);
@@ -314,6 +547,14 @@
 	@media (max-width: 640px) {
 		.time-head {
 			align-items: flex-start;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.metric-toggle,
+		.weather-hourly-toggle,
+		.weather-chevron {
+			transition: none;
 		}
 	}
 </style>

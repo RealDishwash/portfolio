@@ -42,6 +42,20 @@ const { mediaPath } = Astro.props;
         Checking TMDB...
       </a>
       <p class="spotify-artists" id="media-subtitle">Fetching the selected title.</p>
+      <button
+        class="media-more"
+        id="media-more"
+        type="button"
+        aria-expanded="false"
+        aria-controls="media-overview"
+        hidden
+      >
+        <span>Synopsis</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="media-more-chevron">
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+      <p class="media-overview" id="media-overview" hidden></p>
     </div>
   </div>
   <span class="spotify-corner-link" aria-hidden="true">
@@ -55,6 +69,7 @@ const { mediaPath } = Astro.props;
 	type FeaturedMediaPayload = {
 		title: string;
 		subtitle: string;
+		overview?: string;
 		imageUrl?: string;
 		tmdbUrl?: string;
 	};
@@ -64,6 +79,7 @@ const { mediaPath } = Astro.props;
 		stateLabel: string;
 		title: string;
 		subtitle: string;
+		overview: string;
 		imageUrl: string;
 		tmdbUrl: string;
 	};
@@ -80,9 +96,21 @@ const { mediaPath } = Astro.props;
 	const subtitleNode = document.querySelector<HTMLElement>('#media-subtitle');
 	const metaNode = document.querySelector<HTMLElement>('#media-tile .spotify-meta');
 	const artNode = document.querySelector<HTMLImageElement>('#media-art');
+	const overviewNode = document.querySelector<HTMLElement>('#media-overview');
+	const moreNode = document.querySelector<HTMLButtonElement>('#media-more');
 	const linkNodes = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-media-link]'));
 
-	if (tileNode && stateNode && titleNode && subtitleNode && metaNode && artNode && linkNodes.length) {
+	if (
+		tileNode &&
+		stateNode &&
+		titleNode &&
+		subtitleNode &&
+		metaNode &&
+		artNode &&
+		overviewNode &&
+		moreNode &&
+		linkNodes.length
+	) {
 		const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 		const applyLink = (url: string) => {
@@ -96,6 +124,11 @@ const { mediaPath } = Astro.props;
 			metaNode.classList.remove('is-swapping');
 		};
 
+		const collapseOverview = () => {
+			moreNode.setAttribute('aria-expanded', 'false');
+			overviewNode.hidden = true;
+		};
+
 		const applyView = (viewState: MediaViewState) => {
 			tileNode.dataset.mediaState = viewState.mediaState;
 			stateNode.textContent = viewState.stateLabel;
@@ -103,6 +136,11 @@ const { mediaPath } = Astro.props;
 			subtitleNode.textContent = viewState.subtitle;
 			artNode.src = viewState.imageUrl;
 			applyLink(viewState.tmdbUrl);
+
+			overviewNode.textContent = viewState.overview;
+			const hasOverview = viewState.mediaState === 'selected' && Boolean(viewState.overview);
+			moreNode.hidden = !hasOverview;
+			if (!hasOverview) collapseOverview();
 		};
 
 		let lastViewState: MediaViewState | null = null;
@@ -151,6 +189,7 @@ const { mediaPath } = Astro.props;
 				stateLabel: 'Loading',
 				title: 'Checking TMDB...',
 				subtitle: 'Fetching the selected title.',
+				overview: '',
 				imageUrl: PLACEHOLDER_ART,
 				tmdbUrl: DEFAULT_TMDB_URL,
 			});
@@ -162,6 +201,7 @@ const { mediaPath } = Astro.props;
 				stateLabel: 'Unavailable',
 				title: 'TMDB unavailable',
 				subtitle: 'Unable to load the selected title right now.',
+				overview: '',
 				imageUrl: PLACEHOLDER_ART,
 				tmdbUrl: DEFAULT_TMDB_URL,
 			});
@@ -173,10 +213,17 @@ const { mediaPath } = Astro.props;
 				stateLabel: 'Selected',
 				title: payload.title || 'Unknown title',
 				subtitle: payload.subtitle || 'Movie or TV show',
+				overview: payload.overview?.trim() || '',
 				imageUrl: payload.imageUrl || PLACEHOLDER_ART,
 				tmdbUrl: payload.tmdbUrl || DEFAULT_TMDB_URL,
 			});
 		};
+
+		moreNode.addEventListener('click', () => {
+			const expanded = moreNode.getAttribute('aria-expanded') === 'true';
+			moreNode.setAttribute('aria-expanded', String(!expanded));
+			overviewNode.hidden = expanded;
+		});
 
 		const loadFeaturedMedia = async () => {
 			try {
@@ -194,3 +241,60 @@ const { mediaPath } = Astro.props;
 		void loadFeaturedMedia();
 	}
 </script>
+
+<style>
+	.media-more {
+		margin-top: 0.5rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.2rem 0.5rem 0.2rem 0.55rem;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: var(--tile-strong);
+		color: var(--text-soft);
+		font-family: var(--font-mono);
+		font-size: var(--label-sm);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		cursor: pointer;
+		transition:
+			border-color 0.2s ease,
+			color 0.2s ease;
+	}
+
+	.media-more:hover {
+		color: var(--text);
+		border-color: color-mix(in srgb, var(--accent-soft), var(--border) 40%);
+	}
+
+	.media-more-chevron {
+		width: 0.85rem;
+		height: 0.85rem;
+		display: block;
+		transition: transform 0.2s ease;
+	}
+
+	.media-more[aria-expanded='true'] .media-more-chevron {
+		transform: rotate(180deg);
+	}
+
+	.media-overview {
+		margin: 0.5rem 0 0;
+		font-size: var(--text-sm);
+		line-height: 1.5;
+		color: var(--text-soft);
+		max-width: none;
+	}
+
+	.media-overview[hidden] {
+		display: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.media-more,
+		.media-more-chevron {
+			transition: none;
+		}
+	}
+</style>

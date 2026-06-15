@@ -1,4 +1,4 @@
-<article class="tile terminal">
+<article class="tile terminal" id="terminal-tile">
   <div class="terminal-chrome" aria-hidden="true">
     <span class="terminal-chrome-spacer"></span>
     <p class="terminal-caption">fish - 80x24</p>
@@ -8,72 +8,275 @@
       <span class="terminal-control">&#10005;</span>
     </div>
   </div>
-  <div class="terminal-output" aria-live="polite">
+  <div class="terminal-output" id="terminal-output" aria-live="polite">
     <p class="terminal-line terminal-line-muted">Last login: today on pts/0</p>
-    <p class="terminal-line">
+    <p class="terminal-line terminal-line-muted">Type <span class="terminal-kbd">help</span> and press enter.</p>
+  </div>
+  <form class="terminal-prompt" id="terminal-form" autocomplete="off">
+    <label class="terminal-line" for="terminal-input">
       <span class="terminal-user">vishwas@omnibook</span>
       <span class="terminal-path">~</span>
       <span class="terminal-symbol">&gt;</span>
-      <span class="terminal-command-wrap"><span id="terminal-command">bun run astro -- check</span><span class="terminal-cursor" aria-hidden="true"></span></span>
-    </p>
-  </div>
+      <input
+        class="terminal-input"
+        id="terminal-input"
+        name="command"
+        type="text"
+        spellcheck="false"
+        autocapitalize="off"
+        autocorrect="off"
+        aria-label="Terminal command input"
+        placeholder="help"
+      />
+    </label>
+  </form>
 </article>
 
 <script>
-	const terminalCommandNode = document.querySelector<HTMLElement>('#terminal-command');
+	const tileNode = document.querySelector<HTMLElement>('#terminal-tile');
+	const outputNode = document.querySelector<HTMLElement>('#terminal-output');
+	const formNode = document.querySelector<HTMLFormElement>('#terminal-form');
+	const inputNode = document.querySelector<HTMLInputElement>('#terminal-input');
 	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	const terminalCommands = [
-		'bun run astro -- check',
-		'bun run build',
-		'docker compose up -d',
-		'git status -sb',
-		'gh workflow run deploy.yml',
-		'wrangler pages deploy dist',
-	];
+	if (tileNode && outputNode && formNode && inputNode) {
+		// Read another tile's live DOM so the terminal can report current state.
+		const readText = (selector: string) => document.querySelector(selector)?.textContent?.trim() ?? '';
 
-	if (terminalCommandNode && !prefersReducedMotion) {
-		let commandIndex = 0;
-		let charIndex = 0;
-		let isDeleting = false;
-		let typewriterTimeoutId = 0;
+		type Line = { text: string; tone?: 'muted' | 'accent' | 'success'; href?: string };
 
-		const runTypewriter = () => {
-			const currentCommand = terminalCommands[commandIndex];
-
-			if (isDeleting) {
-				charIndex = Math.max(0, charIndex - 1);
-			} else {
-				charIndex = Math.min(currentCommand.length, charIndex + 1);
+		const print = (lines: Line[]) => {
+			for (const line of lines) {
+				const row = document.createElement('p');
+				row.className = 'terminal-line term-row';
+				if (line.tone) row.classList.add(`term-${line.tone}`);
+				if (line.href) {
+					const anchor = document.createElement('a');
+					anchor.className = 'term-link';
+					anchor.href = line.href;
+					anchor.target = '_blank';
+					anchor.rel = 'noreferrer';
+					anchor.textContent = line.text;
+					row.append(anchor);
+				} else {
+					row.textContent = line.text;
+				}
+				outputNode.append(row);
 			}
-
-			terminalCommandNode.textContent = currentCommand.slice(0, charIndex);
-
-			let delay = isDeleting ? 55 : 95;
-			if (!isDeleting && charIndex === currentCommand.length) {
-				delay = 1350;
-				isDeleting = true;
-			} else if (isDeleting && charIndex === 0) {
-				delay = 360;
-				isDeleting = false;
-				commandIndex = (commandIndex + 1) % terminalCommands.length;
-			}
-
-			typewriterTimeoutId = window.setTimeout(runTypewriter, delay);
+			outputNode.scrollTop = outputNode.scrollHeight;
 		};
 
-		terminalCommandNode.textContent = '';
-		typewriterTimeoutId = window.setTimeout(runTypewriter, 250);
+		const echo = (command: string) => {
+			const row = document.createElement('p');
+			row.className = 'terminal-line term-row term-echo';
+			const user = document.createElement('span');
+			user.className = 'terminal-user';
+			user.textContent = 'vishwas@omnibook';
+			const path = document.createElement('span');
+			path.className = 'terminal-path';
+			path.textContent = '~';
+			const symbol = document.createElement('span');
+			symbol.className = 'terminal-symbol';
+			symbol.textContent = '>';
+			const cmd = document.createElement('span');
+			cmd.className = 'term-echo-cmd';
+			cmd.textContent = command;
+			row.append(user, path, symbol, cmd);
+			outputNode.append(row);
+		};
+
+		const COMMANDS: Record<string, () => Line[]> = {
+			help: () => [
+				{ text: 'Available commands:', tone: 'muted' },
+				{ text: 'whoami    — who is this' },
+				{ text: 'projects  — what I build' },
+				{ text: 'stack     — tools I use' },
+				{ text: 'social    — find me online' },
+				{ text: 'now       — what I am listening to' },
+				{ text: 'sports    — live scores' },
+				{ text: 'weather   — conditions in Sydney' },
+				{ text: 'date      — current time (Sydney)' },
+				{ text: 'clear     — clear the screen' },
+			],
+			whoami: () => [
+				{ text: 'Vishwas Parpattegar' },
+				{
+					text: 'Software Engineering student @ UTS — CI/CD pipelines, container platforms, and self-hosted infrastructure.',
+					tone: 'muted',
+				},
+			],
+			projects: () => [
+				{ text: 'homelab — TrueNAS RAIDZ1 array, Immich, Docker services.' },
+				{ text: 'mapick  — Best-of-3 Valorant map veto tool.', href: 'https://mapick.vishy.org' },
+			],
+			stack: () => [
+				{ text: 'Docker · TrueNAS · Kubernetes · Astro · Python · Fish' },
+			],
+			social: () => [
+				{ text: 'github.com/RealDishwash', href: 'https://github.com/RealDishwash' },
+				{ text: 'linkedin.com/in/vishwasparpattegar', href: 'https://www.linkedin.com/in/vishwasparpattegar' },
+				{ text: 'trakt.tv/realdishwash', href: 'https://app.trakt.tv/profile/realdishwash' },
+				{ text: 'resume.pdf', href: 'https://realdishwash.github.io/resume/resume.pdf' },
+			],
+			now: () => {
+				const title = readText('#spotify-track-title');
+				const artists = readText('#spotify-artists');
+				const state = readText('#spotify-state');
+				if (!title || title.includes('...') || state === 'Unavailable') {
+					return [{ text: 'Nothing playing right now.', tone: 'muted' }];
+				}
+				return [
+					{ text: `♪ ${title}` },
+					{ text: artists, tone: 'muted' },
+				];
+			},
+			sports: () => {
+				const lines: Line[] = [];
+				const nbaAway = readText('#nba-away-name');
+				const nbaHome = readText('#nba-home-name');
+				if (nbaAway && nbaAway !== '—' && !nbaAway.startsWith('No ')) {
+					const as = readText('#nba-away-score');
+					const hs = readText('#nba-home-score');
+					lines.push({ text: `NBA  ${nbaAway} ${as}  ·  ${nbaHome} ${hs}`.replace(/\s+/g, ' ').trim() });
+				}
+				const f1Title = readText('#f1-title');
+				const f1Leader = document.querySelector('#f1-podium .ls-podium-name')?.textContent?.trim();
+				if (f1Title && f1Title !== '—' && !f1Title.startsWith('No ')) {
+					lines.push({ text: `F1   ${f1Title}${f1Leader ? ` — P1 ${f1Leader}` : ''}` });
+				}
+				return lines.length ? lines : [{ text: 'No live scores right now.', tone: 'muted' }];
+			},
+			weather: () => {
+				const temp = readText('#weather-temp');
+				const feels = readText('#weather-feels');
+				const wind = readText('#weather-wind');
+				if (!temp || temp.startsWith('--')) return [{ text: 'Weather unavailable.', tone: 'muted' }];
+				return [{ text: `Sydney: ${temp} · ${feels} · ${wind}` }];
+			},
+			date: () => [
+				{
+					text: new Intl.DateTimeFormat('en-AU', {
+						timeZone: 'Australia/Sydney',
+						dateStyle: 'full',
+						timeStyle: 'medium',
+					}).format(new Date()),
+				},
+			],
+		};
+
+		const run = (raw: string) => {
+			const command = raw.trim();
+			echo(command || '');
+			if (!command) {
+				outputNode.scrollTop = outputNode.scrollHeight;
+				return;
+			}
+
+			const name = command.split(/\s+/)[0].toLowerCase();
+			if (name === 'clear') {
+				outputNode.replaceChildren();
+				return;
+			}
+			if (name === 'sudo') {
+				print([{ text: `${command.split(/\s+/)[1] ?? 'sudo'}: permission denied — nice try.`, tone: 'accent' }]);
+				return;
+			}
+			if (name === 'echo') {
+				print([{ text: command.slice(4).trim() }]);
+				return;
+			}
+
+			const handler = COMMANDS[name];
+			if (handler) {
+				print(handler());
+			} else {
+				print([{ text: `command not found: ${name} — try 'help'`, tone: 'accent' }]);
+			}
+		};
+
+		// Command history navigable with the up/down arrows.
+		const history: string[] = [];
+		let historyIndex = 0;
+
+		formNode.addEventListener('submit', (event) => {
+			event.preventDefault();
+			const value = inputNode.value;
+			run(value);
+			if (value.trim()) {
+				history.push(value.trim());
+				historyIndex = history.length;
+			}
+			inputNode.value = '';
+		});
+
+		inputNode.addEventListener('keydown', (event) => {
+			if (event.key === 'ArrowUp') {
+				if (!history.length) return;
+				event.preventDefault();
+				historyIndex = Math.max(0, historyIndex - 1);
+				inputNode.value = history[historyIndex] ?? '';
+			} else if (event.key === 'ArrowDown') {
+				if (!history.length) return;
+				event.preventDefault();
+				historyIndex = Math.min(history.length, historyIndex + 1);
+				inputNode.value = history[historyIndex] ?? '';
+			}
+		});
+
+		// Clicking anywhere on the tile focuses the prompt (unless selecting a link/text).
+		tileNode.addEventListener('click', (event) => {
+			const target = event.target as HTMLElement;
+			if (target.closest('a') || window.getSelection()?.toString()) return;
+			inputNode.focus();
+		});
+
+		// Idle typewriter cycles example commands through the placeholder until the
+		// visitor interacts; it pauses while the input is focused or has text.
+		const examples = ['help', 'whoami', 'projects', 'now', 'sports', 'stack'];
+		let exampleIndex = 0;
+		let charIndex = 0;
+		let isDeleting = false;
+		let typewriterId = 0;
+		let interacted = false;
+
+		const tick = () => {
+			if (interacted) return;
+			const word = examples[exampleIndex];
+			charIndex += isDeleting ? -1 : 1;
+			inputNode.placeholder = word.slice(0, charIndex);
+			let delay = isDeleting ? 55 : 110;
+			if (!isDeleting && charIndex === word.length) {
+				delay = 1500;
+				isDeleting = true;
+			} else if (isDeleting && charIndex === 0) {
+				delay = 320;
+				isDeleting = false;
+				exampleIndex = (exampleIndex + 1) % examples.length;
+			}
+			typewriterId = window.setTimeout(tick, delay);
+		};
+
+		const stopTypewriter = () => {
+			interacted = true;
+			window.clearTimeout(typewriterId);
+			inputNode.placeholder = 'help';
+		};
+
+		inputNode.addEventListener('focus', stopTypewriter, { once: true });
+
+		if (prefersReducedMotion) {
+			inputNode.placeholder = 'help';
+		} else {
+			typewriterId = window.setTimeout(tick, 600);
+		}
 
 		window.addEventListener(
 			'pagehide',
 			() => {
-				window.clearTimeout(typewriterTimeoutId);
+				window.clearTimeout(typewriterId);
 			},
 			{ once: true }
 		);
-	} else if (terminalCommandNode) {
-		terminalCommandNode.textContent = terminalCommands[0];
 	}
 </script>
 
@@ -85,6 +288,7 @@
 		flex-direction: column;
 		background: #11151d;
 		height: 100%;
+		cursor: text;
 	}
 
 	.terminal::before {
@@ -138,9 +342,22 @@
 
 	.terminal-output {
 		margin-top: 0;
-		padding: 0.8rem 0.85rem 0.95rem;
+		padding: 0.8rem 0.85rem 0.4rem;
 		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
 		background: #0c1118;
+		scrollbar-width: thin;
+		scrollbar-color: #2a3342 transparent;
+	}
+
+	.terminal-output::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.terminal-output::-webkit-scrollbar-thumb {
+		background: #2a3342;
+		border-radius: 999px;
 	}
 
 	.terminal-line {
@@ -165,6 +382,15 @@
 		letter-spacing: 0.01em;
 	}
 
+	.terminal-kbd {
+		font-family: var(--font-mono);
+		color: var(--text);
+		background: #1b222e;
+		border: 1px solid #2f3a4b;
+		border-radius: var(--radius-xs);
+		padding: 0 0.3em;
+	}
+
 	.terminal-user {
 		color: #90b4ff;
 	}
@@ -177,45 +403,82 @@
 		color: var(--accent-soft);
 	}
 
-	.terminal-command-wrap {
-		display: inline-flex;
-		align-items: baseline;
-		gap: 0;
-		min-width: 0;
+	.terminal-prompt {
+		padding: 0.1rem 0.85rem 0.85rem;
+		background: #0c1118;
 	}
 
-	#terminal-command {
-		display: inline;
+	.terminal-prompt .terminal-line {
+		margin: 0;
+		cursor: text;
+		flex-wrap: nowrap;
+	}
+
+	.terminal-input {
+		flex: 1;
+		min-width: 0;
+		border: 0;
+		background: transparent;
 		color: var(--text);
-		white-space: normal;
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		line-height: 1.5;
+		padding: 0;
+		caret-color: var(--accent-soft);
+	}
+
+	.terminal-input:focus {
+		outline: none;
+	}
+
+	.terminal-input::placeholder {
+		color: var(--muted);
+		opacity: 0.8;
+	}
+
+	/* Output rows are injected at runtime, so they don't carry Astro's scope
+	   class — these selectors must be :global() to reach them. */
+	.terminal-output :global(.term-row) {
+		display: block;
+		white-space: pre-wrap;
 		overflow-wrap: anywhere;
-		min-width: 0;
+		color: var(--text-soft);
 	}
 
-	.terminal-cursor {
-		width: 0.6ch;
-		height: 1.15em;
-		background: color-mix(in srgb, var(--text), var(--accent-soft) 10%);
-		display: inline-block;
-		transform: translateY(0.13em);
-		animation: terminalCursorBlink 1s step-end infinite;
-		will-change: opacity;
+	.terminal-output :global(.term-muted) {
+		color: var(--muted);
 	}
 
-	@keyframes terminalCursorBlink {
-		0%,
-		49% {
-			opacity: 1;
-		}
-		50%,
-		100% {
-			opacity: 0;
-		}
+	.terminal-output :global(.term-accent) {
+		color: var(--accent-soft);
+	}
+
+	.terminal-output :global(.term-success) {
+		color: color-mix(in srgb, var(--success), white 14%);
+	}
+
+	.terminal-output :global(.term-echo) {
+		display: flex;
+		gap: 0.42rem;
+		margin-top: 0.5rem;
+	}
+
+	.terminal-output :global(.term-echo-cmd) {
+		color: var(--text);
+	}
+
+	.terminal-output :global(.term-link) {
+		color: #90b4ff;
+		text-decoration: none;
+	}
+
+	.terminal-output :global(.term-link:hover) {
+		text-decoration: underline;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.terminal-cursor {
-			animation: none;
+		.terminal {
+			scroll-behavior: auto;
 		}
 	}
 </style>
