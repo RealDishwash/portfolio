@@ -13,12 +13,12 @@
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/space-grotesk": "^5.2.10",
-    "astro": "^5.17.1",
-    "simple-icons": "^16.9.0"
+    "astro": "^5.18.2",
+    "simple-icons": "^16.23.0"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.6",
-    "@cloudflare/workers-types": "^4.20260610.1",
+    "@astrojs/check": "^0.9.9",
+    "@cloudflare/workers-types": "^4.20260615.1",
     "typescript": "^5.9.3",
     "wrangler": "^4.100.0"
   }
