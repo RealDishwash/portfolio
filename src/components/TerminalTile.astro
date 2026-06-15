@@ -74,7 +74,6 @@
 				outputNode.append(row);
 			}
 			trimOutput();
-			outputNode.scrollTop = outputNode.scrollHeight;
 		};
 
 		const echo = (command: string) => {
@@ -95,6 +94,7 @@
 			row.append(user, path, symbol, cmd);
 			outputNode.append(row);
 			trimOutput();
+			return row;
 		};
 
 		const COMMANDS: Record<string, () => Line[]> = {
@@ -176,34 +176,35 @@
 			],
 		};
 
+		// Bring the just-entered command to the top of the viewport so its output
+		// reads top-to-bottom instead of the view jumping to the very bottom.
+		const focusRow = (row: HTMLElement) => {
+			const padTop = parseFloat(getComputedStyle(outputNode).paddingTop) || 0;
+			outputNode.scrollTop = Math.max(0, row.offsetTop - padTop);
+		};
+
 		const run = (raw: string) => {
 			const command = raw.trim();
-			echo(command || '');
-			if (!command) {
-				outputNode.scrollTop = outputNode.scrollHeight;
-				return;
+			const echoRow = echo(command || '');
+
+			if (command) {
+				const name = command.split(/\s+/)[0].toLowerCase();
+				if (name === 'clear') {
+					outputNode.replaceChildren();
+					return;
+				} else if (name === 'sudo') {
+					print([{ text: `${command.split(/\s+/)[1] ?? 'sudo'}: permission denied — nice try.`, tone: 'accent' }]);
+				} else if (name === 'echo') {
+					print([{ text: command.slice(4).trim() }]);
+				} else {
+					const handler = COMMANDS[name];
+					print(
+						handler ? handler() : [{ text: `command not found: ${name} — try 'help'`, tone: 'accent' }]
+					);
+				}
 			}
 
-			const name = command.split(/\s+/)[0].toLowerCase();
-			if (name === 'clear') {
-				outputNode.replaceChildren();
-				return;
-			}
-			if (name === 'sudo') {
-				print([{ text: `${command.split(/\s+/)[1] ?? 'sudo'}: permission denied — nice try.`, tone: 'accent' }]);
-				return;
-			}
-			if (name === 'echo') {
-				print([{ text: command.slice(4).trim() }]);
-				return;
-			}
-
-			const handler = COMMANDS[name];
-			if (handler) {
-				print(handler());
-			} else {
-				print([{ text: `command not found: ${name} — try 'help'`, tone: 'accent' }]);
-			}
+			focusRow(echoRow);
 		};
 
 		// Command history navigable with the up/down arrows.
@@ -368,19 +369,30 @@
 		position: absolute;
 		inset: 0;
 		padding: 0.8rem 0.85rem 0.4rem;
-		overflow-y: auto;
+		/* Always show the scrollbar so it's clear the history scrolls. */
+		overflow-y: scroll;
 		background: #0c1118;
 		scrollbar-width: thin;
-		scrollbar-color: #2a3342 transparent;
+		scrollbar-color: #46546a #161c26;
 	}
 
 	.terminal-output::-webkit-scrollbar {
-		width: 6px;
+		width: 10px;
+	}
+
+	.terminal-output::-webkit-scrollbar-track {
+		background: #161c26;
+		border-radius: 999px;
 	}
 
 	.terminal-output::-webkit-scrollbar-thumb {
-		background: #2a3342;
+		background: #46546a;
 		border-radius: 999px;
+		border: 2px solid #161c26;
+	}
+
+	.terminal-output::-webkit-scrollbar-thumb:hover {
+		background: #586a85;
 	}
 
 	.terminal-line {
