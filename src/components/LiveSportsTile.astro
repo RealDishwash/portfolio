@@ -341,10 +341,19 @@
 			document.querySelectorAll<HTMLButtonElement>('#live-sports-tile .ls-dot-btn')
 		);
 		const SLIDE_COUNT = 2;
-		let slideIndex = 0;
+		// Start on F1 (index 1).
+		let slideIndex = 1;
 
-		const updateCarousel = () => {
-			if (track) track.style.transform = `translateX(-${slideIndex * 100}%)`;
+		const updateCarousel = (instant = false) => {
+			if (track) {
+				// Skip the transition when positioning the initial slide on load.
+				if (instant) track.style.transition = 'none';
+				track.style.transform = `translateX(-${slideIndex * 100}%)`;
+				if (instant) {
+					void track.offsetWidth;
+					track.style.transition = '';
+				}
+			}
 			dotBtns.forEach((dot, i) => {
 				dot.classList.toggle('is-active', i === slideIndex);
 				dot.setAttribute('aria-current', String(i === slideIndex));
@@ -392,7 +401,7 @@
 			);
 		}
 
-		updateCarousel();
+		updateCarousel(true);
 
 		void load();
 		window.setInterval(() => {
@@ -407,6 +416,8 @@
 		flex-direction: column;
 		gap: 0.7rem;
 		position: relative;
+		/* Don't let the 200%-wide carousel track widen the grid cell. */
+		min-width: 0;
 	}
 
 	/* Source attribution. The PNG is a 500×500 square with the ESPN wordmark in a
@@ -421,7 +432,7 @@
 		object-position: center;
 		/* Knock the red wordmark to white to match the other tiles' corner marks. */
 		filter: brightness(0) invert(1);
-		opacity: 0.82;
+		opacity: 0.92;
 		pointer-events: none;
 		z-index: 2;
 	}
@@ -446,17 +457,21 @@
 		flex-direction: column;
 		gap: 0.55rem;
 		flex: 1;
+		min-width: 0;
 		min-height: 0;
 	}
 
 	.ls-viewport {
+		width: 100%;
 		overflow: hidden;
 		flex: 1;
+		min-width: 0;
 		min-height: 0;
 	}
 
 	.ls-track {
 		display: flex;
+		width: 100%;
 		height: 100%;
 		transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
 	}
