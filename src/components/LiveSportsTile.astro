@@ -21,21 +21,15 @@
 		>
 			<div class="ls-row-top">
 				<span class="ls-league ls-league-nba">
-					<svg
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.5"
-						stroke-linecap="round"
-						aria-hidden="true"
-					>
-						<circle cx="12" cy="12" r="9"></circle>
-						<path d="M5.65 5.65l12.7 12.7"></path>
-						<path d="M5.65 18.35l12.7 -12.7"></path>
-						<path d="M12 3a9 9 0 0 0 9 9a9 9 0 0 0 -9 9"></path>
-						<path d="M12 3a9 9 0 0 1 -9 9a9 9 0 0 1 9 9"></path>
-					</svg>
-					NBA
+					<img
+						class="ls-league-logo ls-league-logo-nba"
+						src="https://a.espncdn.com/i/teamlogos/leagues/500/nba.png"
+						alt="NBA"
+						width="203"
+						height="460"
+						loading="lazy"
+						decoding="async"
+					/>
 				</span>
 				<span class="ls-badge" id="nba-badge">
 					<span class="ls-dot" aria-hidden="true"></span>
@@ -69,16 +63,15 @@
 		>
 			<div class="ls-row-top">
 				<span class="ls-league ls-league-f1">
-					<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-						<rect x="4.3" y="3" width="1.5" height="18" rx="0.7"></rect>
-						<rect x="7" y="4.5" width="3" height="3"></rect>
-						<rect x="13" y="4.5" width="3" height="3"></rect>
-						<rect x="10" y="7.5" width="3" height="3"></rect>
-						<rect x="16" y="7.5" width="3" height="3"></rect>
-						<rect x="7" y="10.5" width="3" height="3"></rect>
-						<rect x="13" y="10.5" width="3" height="3"></rect>
-					</svg>
-					F1
+					<img
+						class="ls-league-logo ls-league-logo-f1"
+						src="https://a.espncdn.com/i/teamlogos/leagues/500/f1.png"
+						alt="F1"
+						width="454"
+						height="114"
+						loading="lazy"
+						decoding="async"
+					/>
 				</span>
 				<span class="ls-badge" id="f1-badge">
 					<span class="ls-dot" aria-hidden="true"></span>
@@ -101,7 +94,7 @@
 
 <script>
 	type Competitor = { name: string; abbr: string; logo: string; score: string };
-	type Leader = { pos: number; name: string };
+	type Leader = { pos: number; name: string; points?: number };
 	type EventState = 'live' | 'upcoming' | 'final';
 
 	type SportEvent = {
@@ -254,6 +247,12 @@
 							name.className = 'ls-podium-name';
 							name.textContent = leader.name;
 							li.append(pos, name);
+							if (typeof leader.points === 'number') {
+								const points = document.createElement('span');
+								points.className = 'ls-podium-points';
+								points.textContent = `${leader.points} pts`;
+								li.append(points);
+							}
 							podium.append(li);
 						}
 					}
@@ -381,18 +380,25 @@
 		color: var(--text-soft);
 	}
 
-	.ls-league svg {
-		width: 0.95rem;
-		height: 0.95rem;
+	/* Official league marks. The source PNGs are 500×500 with transparent padding,
+	   so each box is sized to the logo's own content aspect ratio and uses
+	   object-fit: cover to crop the padding away and let the mark read large. */
+	.ls-league-logo {
 		display: block;
+		object-fit: cover;
+		object-position: center;
 	}
 
-	.ls-league-nba {
-		color: color-mix(in srgb, var(--accent), var(--text) 30%);
+	.ls-league-logo-nba {
+		height: 1.7rem;
+		width: calc(1.7rem * 203 / 460);
+		aspect-ratio: 203 / 460;
 	}
 
-	.ls-league-f1 {
-		color: var(--accent);
+	.ls-league-logo-f1 {
+		height: 1rem;
+		width: calc(1rem * 454 / 114);
+		aspect-ratio: 454 / 114;
 	}
 
 	.ls-badge {
@@ -524,9 +530,9 @@
 
 	.ls-podium-item {
 		display: grid;
-		grid-template-columns: 1.2rem minmax(0, 1fr);
-		align-items: center;
-		gap: 0.5rem;
+		grid-template-columns: 1.1rem minmax(0, 1fr) auto;
+		align-items: baseline;
+		gap: 0.6rem;
 		font-size: var(--text-sm);
 	}
 
@@ -544,6 +550,15 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		color: var(--text-soft);
+	}
+
+	.ls-podium-points {
+		font-family: var(--font-mono);
+		font-size: var(--label-xs);
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0.02em;
+		color: var(--muted);
+		white-space: nowrap;
 	}
 
 	.ls-status {

@@ -28,6 +28,9 @@ type Competitor = {
 type Leader = {
   pos: number;
   name: string;
+  // Championship points for the finishing position. Only present for points-scoring
+  // sessions (Race / Sprint); omitted for practice and qualifying.
+  points?: number;
 };
 
 type SportEvent = {
@@ -91,6 +94,22 @@ type EspnEvent = {
 };
 
 type EspnScoreboard = { events?: EspnEvent[] };
+
+// ESPN's scoreboard feed doesn't carry championship points, so we derive them from the
+// finishing order using the standard F1 scoring tables. Fastest-lap bonus isn't reflected.
+const RACE_POINTS: Record<number, number> = {
+  1: 25,
+  2: 18,
+  3: 15,
+  4: 12,
+  5: 10,
+  6: 8,
+  7: 6,
+  8: 4,
+  9: 2,
+  10: 1,
+};
+const SPRINT_POINTS: Record<number, number> = { 1: 8, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1 };
 
 const stateFromStatus = (status?: EspnStatus): EventState => {
   const name = status?.type?.name;
@@ -180,14 +199,22 @@ export const mapF1Event = (event: EspnEvent): SportEvent | null => {
 
   // For a live/finished session, surface the running order (top 3 drivers).
   const resultSource = state === 'upcoming' ? null : chosen;
+  const sessionAbbr = chosen?.type?.abbreviation;
+  const pointsTable =
+    sessionAbbr === 'Race' ? RACE_POINTS : sessionAbbr === 'Sprint' ? SPRINT_POINTS : null;
   const leaders: Leader[] = (resultSource?.competitors || [])
     .slice()
     .sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
     .slice(0, 3)
-    .map((c, index) => ({
-      pos: c.order ?? index + 1,
-      name: c.athlete?.displayName || c.athlete?.shortName || 'TBD',
-    }))
+    .map((c, index) => {
+      const pos = c.order ?? index + 1;
+      const points = pointsTable?.[pos];
+      return {
+        pos,
+        name: c.athlete?.displayName || c.athlete?.shortName || 'TBD',
+        ...(typeof points === 'number' ? { points } : {}),
+      };
+    })
     .filter((leader) => leader.name !== 'TBD');
 
   const city = event.circuit?.address?.city;
