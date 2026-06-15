@@ -90,6 +90,16 @@
 			<p class="ls-status" id="f1-status">Loading…</p>
 		</a>
 	</div>
+
+	<img
+		class="ls-source-logo"
+		src="https://a.espncdn.com/i/espn/misc_logos/500/espn.png"
+		alt="Scores via ESPN"
+		width="500"
+		height="500"
+		loading="lazy"
+		decoding="async"
+	/>
 </article>
 
 <script>
@@ -320,6 +330,22 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.7rem;
+		position: relative;
+	}
+
+	/* Source attribution. The PNG is a 500×500 square with the ESPN wordmark in a
+	   thin centered band, so crop the transparent padding with object-fit: cover. */
+	.ls-source-logo {
+		position: absolute;
+		right: 0.95rem;
+		bottom: 0.82rem;
+		width: 2.4rem;
+		height: 0.6rem;
+		object-fit: cover;
+		object-position: center;
+		opacity: 0.65;
+		pointer-events: none;
+		z-index: 2;
 	}
 
 	.ls-head {
