@@ -34,7 +34,7 @@ Gotchas:
 
 ### API functions (`functions/`)
 
-File-based routes served by Cloudflare Pages Functions at `/api/<name>`: `spotify-now-playing` (OAuth refresh-token flow) and `trakt-recent` (most recent Trakt history item, with posters resolved through TMDB). Shared CORS/origin-allowlist and JSON helpers live in `functions/_lib/http.ts` (underscore-prefixed paths are not routed) — new endpoints should use them and keep the same posture: same-origin only by default, optional comma-separated `ALLOWED_ORIGIN` override, `no-store` on error responses.
+File-based routes served by Cloudflare Pages Functions at `/api/<name>`: `spotify-now-playing` (OAuth refresh-token flow) and `trakt-recent` (most recent Trakt history item, with posters resolved through TMDB). Shared CORS/origin-allowlist and JSON helpers live in `functions/_lib/http.ts` (underscore-prefixed paths are not routed) — new endpoints should use them and keep the same posture: same-origin is always allowed (so preview deployments work without configuration), optional comma-separated `ALLOWED_ORIGIN` adds cross-origin embedders on top, `no-store` on error responses.
 
 The Spotify function uses `caches.default` (Cloudflare Cache API, keyed by synthetic internal URLs) two ways: the full payload is edge-cached for 10s so all visitors share one upstream request, and the access token is persisted across isolate recycling. `wrangler pages dev` supports this locally.
 
