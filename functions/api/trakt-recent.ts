@@ -60,6 +60,9 @@ type TraktHistoryItem = {
 const jsonError = (body: Record<string, unknown>, origin: string) =>
   json({ ok: false, ...body }, 200, origin);
 
+// Workers' fetch sends no User-Agent by default, which trips the Cloudflare
+// bot protection in front of the Trakt API (it returns a 403 challenge page).
+const USER_AGENT = 'vishy-portfolio/1.0 (+https://vishy.org)';
 const TRAKT_API_URL = 'https://api.trakt.tv';
 const TMDB_API_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w342';
@@ -102,7 +105,7 @@ const fetchTmdbPoster = async (
   try {
     const response = await fetch(
       `${TMDB_API_URL}/${kind}/${tmdbId}?api_key=${encodeURIComponent(apiKey)}`,
-      { headers: { Accept: 'application/json' } }
+      { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } }
     );
     if (!response.ok) return '';
     const data = (await response.json()) as { poster_path?: string };
@@ -193,6 +196,7 @@ export const onRequest = async (context: FunctionContext) => {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
+          'User-Agent': USER_AGENT,
           'trakt-api-version': '2',
           'trakt-api-key': env.TRAKT_CLIENT_ID,
         },
