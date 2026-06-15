@@ -42,6 +42,7 @@ const { traktPath } = Astro.props;
         Checking Trakt...
       </a>
       <p class="spotify-artists" id="media-subtitle">Fetching your latest watch.</p>
+      <div class="media-rating" id="media-rating" role="img" hidden></div>
       <button
         class="media-more"
         id="media-more"
@@ -73,6 +74,7 @@ const { traktPath } = Astro.props;
 		imageUrl?: string;
 		linkUrl?: string;
 		stateLabel?: string;
+		rating?: number | null;
 	};
 
 	type MediaViewState = {
@@ -83,6 +85,7 @@ const { traktPath } = Astro.props;
 		overview: string;
 		imageUrl: string;
 		linkUrl: string;
+		rating: number | null;
 	};
 
 	const DEFAULT_TRAKT_URL = 'https://trakt.tv/';
@@ -99,6 +102,7 @@ const { traktPath } = Astro.props;
 	const artNode = document.querySelector<HTMLImageElement>('#media-art');
 	const overviewNode = document.querySelector<HTMLElement>('#media-overview');
 	const moreNode = document.querySelector<HTMLButtonElement>('#media-more');
+	const ratingNode = document.querySelector<HTMLElement>('#media-rating');
 	const linkNodes = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-media-link]'));
 
 	if (
@@ -110,6 +114,7 @@ const { traktPath } = Astro.props;
 		artNode &&
 		overviewNode &&
 		moreNode &&
+		ratingNode &&
 		linkNodes.length
 	) {
 		const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -130,6 +135,27 @@ const { traktPath } = Astro.props;
 			overviewNode.hidden = true;
 		};
 
+		// Trakt rates 1–10; show it out of 5 stars, with the fill width carrying
+		// half-star precision (e.g. 7/10 -> 3.5 stars).
+		const renderRating = (rating: number | null, show: boolean) => {
+			if (!show || rating == null || rating <= 0) {
+				ratingNode.hidden = true;
+				ratingNode.replaceChildren();
+				ratingNode.removeAttribute('aria-label');
+				return;
+			}
+			const fillPct = Math.max(0, Math.min(100, (rating / 10) * 100));
+			const outOfFive = rating / 2;
+			ratingNode.hidden = false;
+			ratingNode.setAttribute(
+				'aria-label',
+				`My rating: ${Number.isInteger(outOfFive) ? outOfFive : outOfFive.toFixed(1)} out of 5`
+			);
+			ratingNode.innerHTML =
+				'<span class="media-rating-base">★★★★★</span>' +
+				`<span class="media-rating-fill" style="width:${fillPct}%">★★★★★</span>`;
+		};
+
 		const applyView = (viewState: MediaViewState) => {
 			tileNode.dataset.mediaState = viewState.mediaState;
 			stateNode.textContent = viewState.stateLabel;
@@ -137,6 +163,7 @@ const { traktPath } = Astro.props;
 			subtitleNode.textContent = viewState.subtitle;
 			artNode.src = viewState.imageUrl;
 			applyLink(viewState.linkUrl);
+			renderRating(viewState.rating, viewState.mediaState === 'watched');
 
 			overviewNode.textContent = viewState.overview;
 			const hasOverview = viewState.mediaState === 'watched' && Boolean(viewState.overview);
@@ -193,6 +220,7 @@ const { traktPath } = Astro.props;
 				overview: '',
 				imageUrl: PLACEHOLDER_ART,
 				linkUrl: DEFAULT_TRAKT_URL,
+				rating: null,
 			});
 		};
 
@@ -205,6 +233,7 @@ const { traktPath } = Astro.props;
 				overview: '',
 				imageUrl: PLACEHOLDER_ART,
 				linkUrl: DEFAULT_TRAKT_URL,
+				rating: null,
 			});
 		};
 
@@ -217,6 +246,7 @@ const { traktPath } = Astro.props;
 				overview: payload.overview?.trim() || '',
 				imageUrl: payload.imageUrl || PLACEHOLDER_ART,
 				linkUrl: payload.linkUrl || DEFAULT_TRAKT_URL,
+				rating: typeof payload.rating === 'number' ? payload.rating : null,
 			});
 		};
 
@@ -244,6 +274,39 @@ const { traktPath } = Astro.props;
 </script>
 
 <style>
+	/* My Trakt rating, shown out of 5 stars. Two stacked star rows: a dim base
+	   and a clipped accent fill whose width encodes the score (half-stars too). */
+	.media-rating {
+		position: relative;
+		display: inline-block;
+		margin-top: 0.3rem;
+		font-size: 0.92rem;
+		line-height: 1;
+		letter-spacing: 0.06em;
+		user-select: none;
+	}
+
+	.media-rating[hidden] {
+		display: none;
+	}
+
+	.media-rating-base,
+	.media-rating-fill {
+		display: block;
+		white-space: nowrap;
+	}
+
+	.media-rating-base {
+		color: color-mix(in srgb, var(--border), white 10%);
+	}
+
+	.media-rating-fill {
+		position: absolute;
+		inset: 0 auto 0 0;
+		overflow: hidden;
+		color: #f2c14e;
+	}
+
 	.media-more {
 		margin-top: 0.5rem;
 		display: inline-flex;
@@ -282,6 +345,9 @@ const { traktPath } = Astro.props;
 
 	.media-overview {
 		margin: 0.5rem 0 0;
+		/* Reserve a clear band at the bottom so long synopses don't run under the
+		   Trakt mark pinned to the tile's bottom-right corner. */
+		padding-bottom: 1.3rem;
 		font-size: var(--text-sm);
 		line-height: 1.5;
 		color: var(--text-soft);

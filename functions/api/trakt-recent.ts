@@ -19,6 +19,7 @@ type FunctionContext = {
 };
 
 type TraktIds = {
+  trakt?: number;
   slug?: string;
   tmdb?: number;
 };
@@ -115,6 +116,46 @@ const fetchTmdbPoster = async (
   }
 };
 
+const traktHeaders = (clientId: string) => ({
+  Accept: 'application/json',
+  'Content-Type': 'application/json',
+  'User-Agent': USER_AGENT,
+  'trakt-api-version': '2',
+  'trakt-api-key': clientId,
+});
+
+type TraktRatingItem = {
+  rating?: number;
+  movie?: { ids?: TraktIds };
+  show?: { ids?: TraktIds };
+};
+
+// Trakt ratings are 1–10; the tile renders them out of 5 stars. Returns the raw
+// 1–10 value, or null when the item isn't rated / the list can't be read.
+const fetchUserRating = async (
+  env: Env,
+  type: 'movies' | 'shows',
+  traktId?: number
+): Promise<number | null> => {
+  if (!traktId || !env.TRAKT_CLIENT_ID || !env.TRAKT_USERNAME) return null;
+  try {
+    const response = await fetch(
+      `${TRAKT_API_URL}/users/${encodeURIComponent(env.TRAKT_USERNAME)}/ratings/${type}`,
+      { headers: traktHeaders(env.TRAKT_CLIENT_ID) }
+    );
+    if (!response.ok) return null;
+    const ratings = (await response.json()) as TraktRatingItem[];
+    if (!Array.isArray(ratings)) return null;
+    const match = ratings.find((entry) => {
+      const ids = type === 'movies' ? entry.movie?.ids : entry.show?.ids;
+      return ids?.trakt === traktId;
+    });
+    return typeof match?.rating === 'number' ? match.rating : null;
+  } catch {
+    return null;
+  }
+};
+
 const buildPayload = async (item: TraktHistoryItem, env: Env) => {
   const stateLabel = relativeWatched(item.watched_at);
 
@@ -122,11 +163,16 @@ const buildPayload = async (item: TraktHistoryItem, env: Env) => {
     const { movie } = item;
     const year = movie.year ? String(movie.year) : '';
     const slug = movie.ids?.slug;
+    const [imageUrl, rating] = await Promise.all([
+      fetchTmdbPoster(env.TMDB_API_KEY, 'movie', movie.ids?.tmdb),
+      fetchUserRating(env, 'movies', movie.ids?.trakt),
+    ]);
     return {
       title: movie.title || 'Unknown title',
       subtitle: ['Movie', year].filter(Boolean).join(' • '),
       overview: movie.overview || '',
-      imageUrl: await fetchTmdbPoster(env.TMDB_API_KEY, 'movie', movie.ids?.tmdb),
+      imageUrl,
+      rating,
       linkUrl: slug ? `https://trakt.tv/movies/${slug}` : 'https://trakt.tv',
       stateLabel,
       watchedAt: item.watched_at || '',
@@ -141,11 +187,16 @@ const buildPayload = async (item: TraktHistoryItem, env: Env) => {
     const number = episode.number ?? 0;
     const code = `S${season}E${number}`;
     const showSlug = show.ids?.slug;
+    const [imageUrl, rating] = await Promise.all([
+      fetchTmdbPoster(env.TMDB_API_KEY, 'tv', show.ids?.tmdb),
+      fetchUserRating(env, 'shows', show.ids?.trakt),
+    ]);
     return {
       title: show.title || 'Unknown show',
       subtitle: [code, episode.title].filter(Boolean).join(' · '),
       overview: episode.overview || show.overview || '',
-      imageUrl: await fetchTmdbPoster(env.TMDB_API_KEY, 'tv', show.ids?.tmdb),
+      imageUrl,
+      rating,
       linkUrl: showSlug
         ? `https://trakt.tv/shows/${showSlug}/seasons/${season}/episodes/${number}`
         : 'https://trakt.tv',
@@ -192,15 +243,7 @@ export const onRequest = async (context: FunctionContext) => {
 
     const response = await fetch(
       `${TRAKT_API_URL}/users/${encodeURIComponent(env.TRAKT_USERNAME)}/history?limit=1&extended=full`,
-      {
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'User-Agent': USER_AGENT,
-          'trakt-api-version': '2',
-          'trakt-api-key': env.TRAKT_CLIENT_ID,
-        },
-      }
+      { headers: traktHeaders(env.TRAKT_CLIENT_ID) }
     );
 
     if (!response.ok) {
