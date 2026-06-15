@@ -42,7 +42,10 @@ const { traktPath } = Astro.props;
         Checking Trakt...
       </a>
       <p class="spotify-artists" id="media-subtitle">Fetching your latest watch.</p>
-      <div class="media-rating" id="media-rating" role="img" hidden></div>
+      <div class="media-rating" id="media-rating" role="img" hidden>
+        <span class="media-rating-base">★★★★★</span>
+        <span class="media-rating-fill" id="media-rating-fill">★★★★★</span>
+      </div>
       <button
         class="media-more"
         id="media-more"
@@ -103,6 +106,7 @@ const { traktPath } = Astro.props;
 	const overviewNode = document.querySelector<HTMLElement>('#media-overview');
 	const moreNode = document.querySelector<HTMLButtonElement>('#media-more');
 	const ratingNode = document.querySelector<HTMLElement>('#media-rating');
+	const ratingFillNode = document.querySelector<HTMLElement>('#media-rating-fill');
 	const linkNodes = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-media-link]'));
 
 	if (
@@ -115,6 +119,7 @@ const { traktPath } = Astro.props;
 		overviewNode &&
 		moreNode &&
 		ratingNode &&
+		ratingFillNode &&
 		linkNodes.length
 	) {
 		const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -140,20 +145,17 @@ const { traktPath } = Astro.props;
 		const renderRating = (rating: number | null, show: boolean) => {
 			if (!show || rating == null || rating <= 0) {
 				ratingNode.hidden = true;
-				ratingNode.replaceChildren();
 				ratingNode.removeAttribute('aria-label');
 				return;
 			}
 			const fillPct = Math.max(0, Math.min(100, (rating / 10) * 100));
 			const outOfFive = rating / 2;
+			ratingFillNode.style.width = `${fillPct}%`;
 			ratingNode.hidden = false;
 			ratingNode.setAttribute(
 				'aria-label',
 				`My rating: ${Number.isInteger(outOfFive) ? outOfFive : outOfFive.toFixed(1)} out of 5`
 			);
-			ratingNode.innerHTML =
-				'<span class="media-rating-base">★★★★★</span>' +
-				`<span class="media-rating-fill" style="width:${fillPct}%">★★★★★</span>`;
 		};
 
 		const applyView = (viewState: MediaViewState) => {
@@ -303,6 +305,7 @@ const { traktPath } = Astro.props;
 	.media-rating-fill {
 		position: absolute;
 		inset: 0 auto 0 0;
+		width: 0;
 		overflow: hidden;
 		color: #f2c14e;
 	}
