@@ -46,20 +46,6 @@ const { traktPath } = Astro.props;
         <span class="media-rating-base">★★★★★</span>
         <span class="media-rating-fill" id="media-rating-fill">★★★★★</span>
       </div>
-      <button
-        class="media-more"
-        id="media-more"
-        type="button"
-        aria-expanded="false"
-        aria-controls="media-overview"
-        hidden
-      >
-        <span>Synopsis</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true" class="media-more-chevron">
-          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-        </svg>
-      </button>
-      <p class="media-overview" id="media-overview" hidden></p>
     </div>
   </div>
   <span class="spotify-corner-link" aria-hidden="true">
@@ -73,7 +59,6 @@ const { traktPath } = Astro.props;
 	type RecentlyWatchedPayload = {
 		title: string;
 		subtitle: string;
-		overview?: string;
 		imageUrl?: string;
 		linkUrl?: string;
 		stateLabel?: string;
@@ -85,7 +70,6 @@ const { traktPath } = Astro.props;
 		stateLabel: string;
 		title: string;
 		subtitle: string;
-		overview: string;
 		imageUrl: string;
 		linkUrl: string;
 		rating: number | null;
@@ -103,8 +87,6 @@ const { traktPath } = Astro.props;
 	const subtitleNode = document.querySelector<HTMLElement>('#media-subtitle');
 	const metaNode = document.querySelector<HTMLElement>('#media-tile .spotify-meta');
 	const artNode = document.querySelector<HTMLImageElement>('#media-art');
-	const overviewNode = document.querySelector<HTMLElement>('#media-overview');
-	const moreNode = document.querySelector<HTMLButtonElement>('#media-more');
 	const ratingNode = document.querySelector<HTMLElement>('#media-rating');
 	const ratingFillNode = document.querySelector<HTMLElement>('#media-rating-fill');
 	const linkNodes = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-media-link]'));
@@ -116,8 +98,6 @@ const { traktPath } = Astro.props;
 		subtitleNode &&
 		metaNode &&
 		artNode &&
-		overviewNode &&
-		moreNode &&
 		ratingNode &&
 		ratingFillNode &&
 		linkNodes.length
@@ -133,11 +113,6 @@ const { traktPath } = Astro.props;
 		const clearMotionClasses = () => {
 			artNode.classList.remove('is-swapping');
 			metaNode.classList.remove('is-swapping');
-		};
-
-		const collapseOverview = () => {
-			moreNode.setAttribute('aria-expanded', 'false');
-			overviewNode.hidden = true;
 		};
 
 		// Trakt rates 1–10; show it out of 5 stars, with the fill width carrying
@@ -166,11 +141,6 @@ const { traktPath } = Astro.props;
 			artNode.src = viewState.imageUrl;
 			applyLink(viewState.linkUrl);
 			renderRating(viewState.rating, viewState.mediaState === 'watched');
-
-			overviewNode.textContent = viewState.overview;
-			const hasOverview = viewState.mediaState === 'watched' && Boolean(viewState.overview);
-			moreNode.hidden = !hasOverview;
-			if (!hasOverview) collapseOverview();
 		};
 
 		let lastViewState: MediaViewState | null = null;
@@ -219,7 +189,6 @@ const { traktPath } = Astro.props;
 				stateLabel: 'Loading',
 				title: 'Checking Trakt...',
 				subtitle: 'Fetching your latest watch.',
-				overview: '',
 				imageUrl: PLACEHOLDER_ART,
 				linkUrl: DEFAULT_TRAKT_URL,
 				rating: null,
@@ -232,7 +201,6 @@ const { traktPath } = Astro.props;
 				stateLabel: 'Unavailable',
 				title: 'Trakt unavailable',
 				subtitle: 'Unable to load your recent watch right now.',
-				overview: '',
 				imageUrl: PLACEHOLDER_ART,
 				linkUrl: DEFAULT_TRAKT_URL,
 				rating: null,
@@ -245,18 +213,11 @@ const { traktPath } = Astro.props;
 				stateLabel: payload.stateLabel || 'Watched',
 				title: payload.title || 'Unknown title',
 				subtitle: payload.subtitle || 'Movie or TV show',
-				overview: payload.overview?.trim() || '',
 				imageUrl: payload.imageUrl || PLACEHOLDER_ART,
 				linkUrl: payload.linkUrl || DEFAULT_TRAKT_URL,
 				rating: typeof payload.rating === 'number' ? payload.rating : null,
 			});
 		};
-
-		moreNode.addEventListener('click', () => {
-			const expanded = moreNode.getAttribute('aria-expanded') === 'true';
-			moreNode.setAttribute('aria-expanded', String(!expanded));
-			overviewNode.hidden = expanded;
-		});
 
 		const loadRecentlyWatched = async () => {
 			try {
@@ -308,63 +269,5 @@ const { traktPath } = Astro.props;
 		width: 0;
 		overflow: hidden;
 		color: #f2c14e;
-	}
-
-	.media-more {
-		margin-top: 0.5rem;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		padding: 0.2rem 0.5rem 0.2rem 0.55rem;
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		background: var(--tile-strong);
-		color: var(--text-soft);
-		font-family: var(--font-mono);
-		font-size: var(--label-sm);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			border-color 0.2s ease,
-			color 0.2s ease;
-	}
-
-	.media-more:hover {
-		color: var(--text);
-		border-color: color-mix(in srgb, var(--accent-soft), var(--border) 40%);
-	}
-
-	.media-more-chevron {
-		width: 0.85rem;
-		height: 0.85rem;
-		display: block;
-		transition: transform 0.2s ease;
-	}
-
-	.media-more[aria-expanded='true'] .media-more-chevron {
-		transform: rotate(180deg);
-	}
-
-	.media-overview {
-		margin: 0.5rem 0 0;
-		/* Reserve a clear band at the bottom so long synopses don't run under the
-		   Trakt mark pinned to the tile's bottom-right corner. */
-		padding-bottom: 1.3rem;
-		font-size: var(--text-sm);
-		line-height: 1.5;
-		color: var(--text-soft);
-		max-width: none;
-	}
-
-	.media-overview[hidden] {
-		display: none;
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.media-more,
-		.media-more-chevron {
-			transition: none;
-		}
 	}
 </style>
