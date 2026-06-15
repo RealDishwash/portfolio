@@ -149,6 +149,21 @@
 			}).format(new Date(ms));
 		};
 
+		// Bottom status line. The badge already shows "Final" for finished events, so
+		// strip redundant "Final" tokens here (e.g. F1's "Race · Final" -> "Race",
+		// NBA's "Final" -> "", "Final/OT" -> "OT") to avoid saying it twice.
+		const formatDetail = (event: SportEvent): string => {
+			if (event.state === 'upcoming') return formatStart(event.startDate);
+			if (event.state !== 'final') return event.statusDetail || BADGE_LABELS[event.state];
+			return (event.statusDetail || '')
+				.split('·')
+				.map((part) => part.trim())
+				.filter(Boolean)
+				.map((part) => (/^final\//i.test(part) ? part.slice(part.indexOf('/') + 1).trim() : part))
+				.filter((part) => part.toLowerCase() !== 'final')
+				.join(' · ');
+		};
+
 		// Brief fade so refreshed scores don't pop in jarringly.
 		const swap = (node: HTMLElement | null, mutate: () => void) => {
 			if (!node) return;
@@ -207,12 +222,7 @@
 				setText('nba-home-score', showScore ? (home?.score ?? '') : '');
 				setLogo('nba-away-logo', away?.logo ?? '');
 				setLogo('nba-home-logo', home?.logo ?? '');
-				setText(
-					'nba-status',
-					event.state === 'upcoming'
-						? formatStart(event.startDate)
-						: event.statusDetail || BADGE_LABELS[event.state]
-				);
+				setText('nba-status', formatDetail(event));
 			});
 		};
 
@@ -258,12 +268,7 @@
 					}
 				}
 
-				setText(
-					'f1-status',
-					event.state === 'upcoming'
-						? formatStart(event.startDate)
-						: event.statusDetail || BADGE_LABELS[event.state]
-				);
+				setText('f1-status', formatDetail(event));
 			});
 		};
 
@@ -528,7 +533,9 @@
 		gap: 0.2rem;
 	}
 
-	.ls-podium-item {
+	/* Podium rows are injected at runtime by the tile script, so they don't carry
+	   Astro's scope attribute — these selectors must be :global() to reach them. */
+	.ls-podium :global(.ls-podium-item) {
 		display: grid;
 		grid-template-columns: 1.1rem minmax(0, 1fr) auto;
 		align-items: baseline;
@@ -536,7 +543,7 @@
 		font-size: var(--text-sm);
 	}
 
-	.ls-podium-pos {
+	.ls-podium :global(.ls-podium-pos) {
 		font-family: var(--font-mono);
 		font-size: var(--label-sm);
 		font-weight: 600;
@@ -544,7 +551,7 @@
 		text-align: center;
 	}
 
-	.ls-podium-name {
+	.ls-podium :global(.ls-podium-name) {
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -552,12 +559,13 @@
 		color: var(--text-soft);
 	}
 
-	.ls-podium-points {
+	.ls-podium :global(.ls-podium-points) {
 		font-family: var(--font-mono);
 		font-size: var(--label-xs);
 		font-variant-numeric: tabular-nums;
 		letter-spacing: 0.02em;
 		color: var(--muted);
+		text-align: right;
 		white-space: nowrap;
 	}
 
@@ -567,6 +575,11 @@
 		font-size: var(--label-sm);
 		letter-spacing: 0.02em;
 		color: var(--text-soft);
+	}
+
+	/* Finished games drop their redundant "Final" detail, leaving an empty line. */
+	.ls-status:empty {
+		display: none;
 	}
 
 	@keyframes lsPulse {
