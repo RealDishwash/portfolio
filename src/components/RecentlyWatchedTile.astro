@@ -63,10 +63,11 @@ const { traktPath } = Astro.props;
 		linkUrl?: string;
 		stateLabel?: string;
 		rating?: number | null;
+		isWatching?: boolean;
 	};
 
 	type MediaViewState = {
-		mediaState: 'loading' | 'error' | 'watched';
+		mediaState: 'loading' | 'error' | 'watched' | 'watching';
 		stateLabel: string;
 		title: string;
 		subtitle: string;
@@ -77,6 +78,9 @@ const { traktPath } = Astro.props;
 
 	const DEFAULT_TRAKT_URL = 'https://trakt.tv/';
 	const ENDPOINT = '/api/trakt-recent';
+	// Matches the live cache window on the endpoint (30s), so polling never
+	// outpaces fresh data while still reflecting a session starting or ending.
+	const POLL_INTERVAL_MS = 30_000;
 	const PLACEHOLDER_ART = `data:image/svg+xml,${encodeURIComponent(
 		"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#1a1520'/><stop offset='1' stop-color='#0b111a'/></linearGradient></defs><rect width='64' height='64' fill='url(#g)'/><path d='M21 15h22a4 4 0 0 1 4 4v26a4 4 0 0 1-4 4H21a4 4 0 0 1-4-4V19a4 4 0 0 1 4-4Z' fill='none' stroke='#3b4558' stroke-width='2'/><path d='M27 25l13 7-13 7V25Z' fill='#3b4558'/></svg>"
 	)}`;
@@ -140,7 +144,10 @@ const { traktPath } = Astro.props;
 			subtitleNode.textContent = viewState.subtitle;
 			artNode.src = viewState.imageUrl;
 			applyLink(viewState.linkUrl);
-			renderRating(viewState.rating, viewState.mediaState === 'watched');
+			renderRating(
+				viewState.rating,
+				viewState.mediaState === 'watched' || viewState.mediaState === 'watching'
+			);
 		};
 
 		let lastViewState: MediaViewState | null = null;
@@ -208,9 +215,10 @@ const { traktPath } = Astro.props;
 		};
 
 		const setRecentlyWatched = (payload: RecentlyWatchedPayload) => {
+			const watching = Boolean(payload.isWatching);
 			setViewState({
-				mediaState: 'watched',
-				stateLabel: payload.stateLabel || 'Watched',
+				mediaState: watching ? 'watching' : 'watched',
+				stateLabel: payload.stateLabel || (watching ? 'Watching' : 'Watched'),
 				title: payload.title || 'Unknown title',
 				subtitle: payload.subtitle || 'Movie or TV show',
 				imageUrl: payload.imageUrl || PLACEHOLDER_ART,
@@ -219,7 +227,11 @@ const { traktPath } = Astro.props;
 			});
 		};
 
+		let isRequestInFlight = false;
+
 		const loadRecentlyWatched = async () => {
+			if (isRequestInFlight) return;
+			isRequestInFlight = true;
 			try {
 				const response = await fetch(ENDPOINT, { headers: { Accept: 'application/json' } });
 				if (!response.ok) throw new Error('recently watched request failed');
@@ -228,11 +240,17 @@ const { traktPath } = Astro.props;
 				setRecentlyWatched(payload);
 			} catch {
 				setError();
+			} finally {
+				isRequestInFlight = false;
 			}
 		};
 
 		setLoading();
 		void loadRecentlyWatched();
+		// Poll so a freshly started (or ended) session updates the tile live.
+		window.setInterval(() => {
+			void loadRecentlyWatched();
+		}, POLL_INTERVAL_MS);
 	}
 </script>
 

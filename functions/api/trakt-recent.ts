@@ -48,6 +48,9 @@ type TraktEpisode = {
 
 type TraktHistoryItem = {
   watched_at?: string;
+  // Present instead of `watched_at` on the /watching endpoint.
+  started_at?: string;
+  expires_at?: string;
   type?: 'movie' | 'episode';
   movie?: TraktMovie;
   show?: TraktShow;
@@ -69,6 +72,9 @@ const TMDB_API_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w342';
 // Recent history shifts slowly; share one upstream call per visitor wave.
 const CACHE_CONTROL = 'public, max-age=600, s-maxage=600';
+// A live "currently watching" state changes in real time, so cache it briefly
+// to avoid the tile showing a session that has already ended.
+const LIVE_CACHE_CONTROL = 'public, max-age=30, s-maxage=30';
 
 const relativeWatched = (watchedAt?: string) => {
   if (!watchedAt) return 'Watched';
@@ -156,8 +162,8 @@ const fetchUserRating = async (
   }
 };
 
-const buildPayload = async (item: TraktHistoryItem, env: Env) => {
-  const stateLabel = relativeWatched(item.watched_at);
+const buildPayload = async (item: TraktHistoryItem, env: Env, live = false) => {
+  const stateLabel = live ? 'Watching' : relativeWatched(item.watched_at);
 
   if (item.type === 'movie' && item.movie) {
     const { movie } = item;
@@ -175,6 +181,7 @@ const buildPayload = async (item: TraktHistoryItem, env: Env) => {
       rating,
       linkUrl: slug ? `https://trakt.tv/movies/${slug}` : 'https://trakt.tv',
       stateLabel,
+      isWatching: live,
       watchedAt: item.watched_at || '',
       mediaType: 'movie' as const,
       lastUpdated: new Date().toISOString(),
@@ -201,6 +208,7 @@ const buildPayload = async (item: TraktHistoryItem, env: Env) => {
         ? `https://trakt.tv/shows/${showSlug}/seasons/${season}/episodes/${number}`
         : 'https://trakt.tv',
       stateLabel,
+      isWatching: live,
       watchedAt: item.watched_at || '',
       mediaType: 'episode' as const,
       lastUpdated: new Date().toISOString(),
@@ -208,6 +216,24 @@ const buildPayload = async (item: TraktHistoryItem, env: Env) => {
   }
 
   return null;
+};
+
+// Trakt exposes the in-progress scrobble at /watching, returning 204 when the
+// user isn't watching anything. Any failure falls back to recent history.
+const fetchWatching = async (env: Env) => {
+  if (!env.TRAKT_CLIENT_ID || !env.TRAKT_USERNAME) return null;
+  try {
+    const response = await fetch(
+      `${TRAKT_API_URL}/users/${encodeURIComponent(env.TRAKT_USERNAME)}/watching?extended=full`,
+      { headers: traktHeaders(env.TRAKT_CLIENT_ID) }
+    );
+    if (response.status === 204 || !response.ok) return null;
+    const item = (await response.json()) as TraktHistoryItem;
+    if (!item || !item.type) return null;
+    return await buildPayload(item, env, true);
+  } catch {
+    return null;
+  }
 };
 
 export const onRequest = async (context: FunctionContext) => {
@@ -239,6 +265,12 @@ export const onRequest = async (context: FunctionContext) => {
         },
         origin
       );
+    }
+
+    // Prefer the live "currently watching" state; fall back to recent history.
+    const watching = await fetchWatching(env);
+    if (watching) {
+      return json({ ok: true, ...watching }, 200, origin, LIVE_CACHE_CONTROL);
     }
 
     const response = await fetch(

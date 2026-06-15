@@ -28,7 +28,7 @@
 }
 
 .spotify[data-spotify-state='playing'] .spotify-state,
-.media-tile[data-media-state='selected'] .spotify-state {
+.media-tile[data-media-state='watching'] .spotify-state {
 	color: color-mix(in srgb, var(--success), white 22%);
 	border-color: color-mix(in srgb, var(--success), var(--border) 45%);
 	background: color-mix(in srgb, var(--success), var(--tile-strong) 90%);
