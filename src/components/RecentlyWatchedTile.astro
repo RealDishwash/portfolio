@@ -2,25 +2,25 @@
 import '../styles/media-card.css';
 
 interface Props {
-  traktPath: string;
+  floppyPath: string;
 }
 
-const { traktPath } = Astro.props;
+const { floppyPath } = Astro.props;
 ---
 
-<article class="tile spotify media-tile" id="media-tile">
-  <div class="spotify-head">
-    <h2 id="media-heading">Recently Watched</h2>
-    <span class="spotify-state" id="media-state">Loading</span>
+<article class="tile media-card media-tile" id="media-tile">
+  <div class="media-card-head">
+    <h2>Recently Watched</h2>
+    <span class="media-card-state" id="media-state">Loading</span>
   </div>
-  <div class="spotify-body">
+  <div class="media-card-body">
     <a
-      class="spotify-art-link"
+      class="media-card-art-link"
       data-media-link
-      href="https://trakt.tv/"
+      href="https://github.com/dannyvfilms/Floppy"
       target="_blank"
       rel="noreferrer"
-      aria-label="Open on Trakt"
+      aria-label="Open watch history"
     >
       <img
         id="media-art"
@@ -30,34 +30,27 @@ const { traktPath } = Astro.props;
         decoding="async"
       />
     </a>
-    <div class="spotify-meta" aria-live="polite">
+    <div class="media-card-meta" aria-live="polite">
       <a
-        class="spotify-title"
+        class="media-card-title"
         id="media-title"
         data-media-link
-        href="https://trakt.tv/"
+        href="https://github.com/dannyvfilms/Floppy"
         target="_blank"
         rel="noreferrer"
       >
-        Checking Trakt...
+        Checking Floppy...
       </a>
-      <p class="spotify-artists" id="media-subtitle">Fetching your latest watch.</p>
+      <p class="media-card-subtitle" id="media-subtitle">Fetching your latest watch.</p>
       <div class="media-rating" id="media-rating" role="img" hidden>
         <span class="media-rating-base">★★★★★</span>
         <span class="media-rating-fill" id="media-rating-fill">★★★★★</span>
       </div>
-      <div class="player-progress" id="media-progress" aria-hidden="true" hidden>
-        <span class="player-time" id="media-time-current">-:--</span>
-        <div class="player-track-bar">
-          <span class="player-track-fill" id="media-progress-fill"></span>
-        </div>
-        <span class="player-time player-time-duration" id="media-time-duration">-:--</span>
-      </div>
     </div>
   </div>
-  <span class="spotify-corner-link" aria-hidden="true">
+  <span class="media-card-corner-link" aria-hidden="true">
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d={traktPath} fill="currentColor"></path>
+      <path d={floppyPath} fill="currentColor"></path>
     </svg>
   </span>
 </article>
@@ -70,54 +63,37 @@ const { traktPath } = Astro.props;
 		linkUrl?: string;
 		stateLabel?: string;
 		rating?: number | null;
-		isWatching?: boolean;
-		progressMs?: number | null;
-		durationMs?: number | null;
-		lastUpdated?: string;
 	};
 
 	type MediaViewState = {
-		mediaState: 'loading' | 'error' | 'watched' | 'watching';
+		mediaState: 'loading' | 'error' | 'watched';
 		stateLabel: string;
 		title: string;
 		subtitle: string;
 		imageUrl: string;
 		linkUrl: string;
 		rating: number | null;
-		isWatching: boolean;
-		progressMs: number | null;
-		durationMs: number | null;
 	};
 
-	const DEFAULT_TRAKT_URL = 'https://trakt.tv/';
-	const ENDPOINT = '/api/trakt-recent';
-	// Matches the live cache window on the endpoint (30s), so polling never
-	// outpaces fresh data while still reflecting a session starting or ending.
-	const POLL_INTERVAL_MS = 30_000;
-	const PROGRESS_TICK_MS = 1_000;
-	const MAX_CACHE_AGE_MS = 60_000;
+	const DEFAULT_FLOPPY_URL = 'https://github.com/dannyvfilms/Floppy';
+	const ENDPOINT = '/api/floppy-recent';
+	const POLL_INTERVAL_MS = 60_000;
 	const PLACEHOLDER_ART = `data:image/svg+xml,${encodeURIComponent(
 		"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#1a1520'/><stop offset='1' stop-color='#0b111a'/></linearGradient></defs><rect width='64' height='64' fill='url(#g)'/><path d='M21 15h22a4 4 0 0 1 4 4v26a4 4 0 0 1-4 4H21a4 4 0 0 1-4-4V19a4 4 0 0 1 4-4Z' fill='none' stroke='#3b4558' stroke-width='2'/><path d='M27 25l13 7-13 7V25Z' fill='#3b4558'/></svg>"
 	)}`;
 
 	const tileNode = document.querySelector<HTMLElement>('#media-tile');
-	const headingNode = document.querySelector<HTMLElement>('#media-heading');
 	const stateNode = document.querySelector<HTMLElement>('#media-state');
 	const titleNode = document.querySelector<HTMLElement>('#media-title');
 	const subtitleNode = document.querySelector<HTMLElement>('#media-subtitle');
-	const metaNode = document.querySelector<HTMLElement>('#media-tile .spotify-meta');
+	const metaNode = document.querySelector<HTMLElement>('#media-tile .media-card-meta');
 	const artNode = document.querySelector<HTMLImageElement>('#media-art');
 	const ratingNode = document.querySelector<HTMLElement>('#media-rating');
 	const ratingFillNode = document.querySelector<HTMLElement>('#media-rating-fill');
-	const progressNode = document.querySelector<HTMLElement>('#media-progress');
-	const timeCurrentNode = document.querySelector<HTMLElement>('#media-time-current');
-	const timeDurationNode = document.querySelector<HTMLElement>('#media-time-duration');
-	const progressFillNode = document.querySelector<HTMLElement>('#media-progress-fill');
 	const linkNodes = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-media-link]'));
 
 	if (
 		tileNode &&
-		headingNode &&
 		stateNode &&
 		titleNode &&
 		subtitleNode &&
@@ -125,18 +101,12 @@ const { traktPath } = Astro.props;
 		artNode &&
 		ratingNode &&
 		ratingFillNode &&
-		progressNode &&
-		timeCurrentNode &&
-		timeDurationNode &&
-		progressFillNode &&
 		linkNodes.length
 	) {
 		const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 		const applyLink = (url: string) => {
-			for (const node of linkNodes) {
-				node.href = url;
-			}
+			for (const node of linkNodes) node.href = url;
 		};
 
 		const clearMotionClasses = () => {
@@ -144,8 +114,6 @@ const { traktPath } = Astro.props;
 			metaNode.classList.remove('is-swapping');
 		};
 
-		// Trakt rates 1–10; show it out of 5 stars, with the fill width carrying
-		// half-star precision (e.g. 7/10 -> 3.5 stars).
 		const renderRating = (rating: number | null, show: boolean) => {
 			if (!show || rating == null || rating <= 0) {
 				ratingNode.hidden = true;
@@ -162,62 +130,14 @@ const { traktPath } = Astro.props;
 			);
 		};
 
-		const formatTime = (ms: number) => {
-			const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-			const hours = Math.floor(totalSeconds / 3600);
-			const minutes = Math.floor((totalSeconds % 3600) / 60);
-			const seconds = totalSeconds % 60;
-			if (hours > 0) {
-				return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-			}
-			return `${minutes}:${String(seconds).padStart(2, '0')}`;
-		};
-
-		// Progress is extrapolated locally between polls while a scrobble runs.
-		let progressBaseMs: number | null = null;
-		let progressBaseAt = 0;
-		let progressDurationMs: number | null = null;
-		let progressActive = false;
-
-		const renderProgress = () => {
-			if (
-				!progressActive ||
-				progressBaseMs === null ||
-				progressDurationMs === null ||
-				progressDurationMs <= 0
-			) {
-				progressNode.hidden = true;
-				return;
-			}
-
-			const elapsed = Date.now() - progressBaseAt;
-			const shownMs = Math.min(progressBaseMs + elapsed, progressDurationMs);
-			progressNode.hidden = false;
-			timeCurrentNode.textContent = formatTime(shownMs);
-			timeDurationNode.textContent = formatTime(progressDurationMs);
-			progressFillNode.style.width = `${(shownMs / progressDurationMs) * 100}%`;
-		};
-
 		const applyView = (viewState: MediaViewState) => {
 			tileNode.dataset.mediaState = viewState.mediaState;
-			headingNode.textContent =
-				viewState.mediaState === 'watching' ? 'Now Watching' : 'Recently Watched';
 			stateNode.textContent = viewState.stateLabel;
 			titleNode.textContent = viewState.title;
 			subtitleNode.textContent = viewState.subtitle;
 			artNode.src = viewState.imageUrl;
 			applyLink(viewState.linkUrl);
-			renderRating(
-				viewState.rating,
-				viewState.mediaState === 'watched' || viewState.mediaState === 'watching'
-			);
-
-			progressActive =
-				viewState.isWatching && viewState.progressMs !== null && viewState.durationMs !== null;
-			progressBaseMs = viewState.progressMs;
-			progressBaseAt = Date.now();
-			progressDurationMs = viewState.durationMs;
-			renderProgress();
+			renderRating(viewState.rating, viewState.mediaState === 'watched');
 		};
 
 		let lastViewState: MediaViewState | null = null;
@@ -264,14 +184,11 @@ const { traktPath } = Astro.props;
 			setViewState({
 				mediaState: 'loading',
 				stateLabel: 'Loading',
-				title: 'Checking Trakt...',
+				title: 'Checking Floppy...',
 				subtitle: 'Fetching your latest watch.',
 				imageUrl: PLACEHOLDER_ART,
-				linkUrl: DEFAULT_TRAKT_URL,
+				linkUrl: DEFAULT_FLOPPY_URL,
 				rating: null,
-				isWatching: false,
-				progressMs: null,
-				durationMs: null,
 			});
 		};
 
@@ -279,46 +196,27 @@ const { traktPath } = Astro.props;
 			setViewState({
 				mediaState: 'error',
 				stateLabel: 'Unavailable',
-				title: 'Trakt unavailable',
-				subtitle: 'Unable to load your recent watch right now.',
+				title: 'Watch history unavailable',
+				subtitle: 'Unable to load Floppy right now.',
 				imageUrl: PLACEHOLDER_ART,
-				linkUrl: DEFAULT_TRAKT_URL,
+				linkUrl: DEFAULT_FLOPPY_URL,
 				rating: null,
-				isWatching: false,
-				progressMs: null,
-				durationMs: null,
 			});
 		};
 
 		const setRecentlyWatched = (payload: RecentlyWatchedPayload) => {
-			const watching = Boolean(payload.isWatching);
-
-			// The endpoint is edge-cached, so add the payload's age to the elapsed
-			// time while a scrobble is live, matching the Spotify tile.
-			let progressMs = typeof payload.progressMs === 'number' ? payload.progressMs : null;
-			if (progressMs !== null && watching && payload.lastUpdated) {
-				const payloadAgeMs = Date.now() - Date.parse(payload.lastUpdated);
-				if (Number.isFinite(payloadAgeMs) && payloadAgeMs > 0) {
-					progressMs += Math.min(payloadAgeMs, MAX_CACHE_AGE_MS);
-				}
-			}
-
 			setViewState({
-				mediaState: watching ? 'watching' : 'watched',
-				stateLabel: payload.stateLabel || (watching ? 'Watching' : 'Watched'),
+				mediaState: 'watched',
+				stateLabel: payload.stateLabel || 'Watched',
 				title: payload.title || 'Unknown title',
-				subtitle: payload.subtitle || 'Movie or TV show',
+				subtitle: payload.subtitle || 'Movie or TV episode',
 				imageUrl: payload.imageUrl || PLACEHOLDER_ART,
-				linkUrl: payload.linkUrl || DEFAULT_TRAKT_URL,
+				linkUrl: payload.linkUrl || DEFAULT_FLOPPY_URL,
 				rating: typeof payload.rating === 'number' ? payload.rating : null,
-				isWatching: watching,
-				progressMs,
-				durationMs: typeof payload.durationMs === 'number' ? payload.durationMs : null,
 			});
 		};
 
 		let isRequestInFlight = false;
-
 		const loadRecentlyWatched = async () => {
 			if (isRequestInFlight) return;
 			isRequestInFlight = true;
@@ -326,7 +224,7 @@ const { traktPath } = Astro.props;
 				const response = await fetch(ENDPOINT, { headers: { Accept: 'application/json' } });
 				if (!response.ok) throw new Error('recently watched request failed');
 				const payload = (await response.json()) as RecentlyWatchedPayload;
-				if (!payload || !payload.title || !payload.subtitle) throw new Error('invalid payload');
+				if (!payload?.title || !payload.subtitle) throw new Error('invalid payload');
 				setRecentlyWatched(payload);
 			} catch {
 				setError();
@@ -337,17 +235,12 @@ const { traktPath } = Astro.props;
 
 		setLoading();
 		void loadRecentlyWatched();
-		// Poll so a freshly started (or ended) session updates the tile live.
-		window.setInterval(() => {
-			void loadRecentlyWatched();
-		}, POLL_INTERVAL_MS);
-		window.setInterval(renderProgress, PROGRESS_TICK_MS);
+		window.setInterval(() => void loadRecentlyWatched(), POLL_INTERVAL_MS);
 	}
 </script>
 
 <style>
-	/* My Trakt rating, shown out of 5 stars. Two stacked star rows: a dim base
-	   and a clipped accent fill whose width encodes the score (half-stars too). */
+	/* Floppy scores are 1–10; the clipped fill renders them out of five stars. */
 	.media-rating {
 		position: relative;
 		display: inline-block;
@@ -379,5 +272,4 @@ const { traktPath } = Astro.props;
 		overflow: hidden;
 		color: #f2c14e;
 	}
-
 </style>

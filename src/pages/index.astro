@@ -5,7 +5,7 @@ import EngineeringSnapshotTile from '../components/EngineeringSnapshotTile.astro
 import ProjectTile from '../components/ProjectTile.astro';
 import CurrentConditionsTile from '../components/CurrentConditionsTile.astro';
 import StatusTile from '../components/StatusTile.astro';
-import SpotifyTile from '../components/SpotifyTile.astro';
+import ListeningTile from '../components/ListeningTile.astro';
 import RecentlyWatchedTile from '../components/RecentlyWatchedTile.astro';
 import LiveSportsTile from '../components/LiveSportsTile.astro';
 import TerminalTile from '../components/TerminalTile.astro';
@@ -18,10 +18,13 @@ import {
 	siGithub,
 	siKubernetes,
 	siPython,
-	siSpotify,
+	siLastdotfm,
 	siTrakt,
 	siTruenas,
 } from 'simple-icons';
+
+const floppyPath =
+	'M17 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4Zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm3-10H5V5h10v4Z';
 
 const tools = [
 	{ name: 'Docker', iconPath: siDocker.path, url: 'https://www.docker.com/' },
@@ -60,8 +63,8 @@ const mapickProject = {
 			<ProjectTile {...mapickProject} />
 			<StatusTile />
 			<CurrentConditionsTile />
-			<SpotifyTile spotifyPath={siSpotify.path} />
-			<RecentlyWatchedTile traktPath={siTrakt.path} />
+			<ListeningTile lastFmPath={siLastdotfm.path} />
+			<RecentlyWatchedTile floppyPath={floppyPath} />
 			<LiveSportsTile />
 			<TerminalTile />
 			<SignatureTile />
@@ -236,7 +239,7 @@ const mapickProject = {
 		grid-template-areas:
 			'about about about featured featured featured'
 			'project project project now now now'
-			'meta meta spotify spotify media media'
+			'meta meta listening listening media media'
 			'terminal terminal terminal terminal live live'
 			'signature signature signature signature signature signature';
 		align-items: stretch;
@@ -262,8 +265,8 @@ const mapickProject = {
 		grid-area: meta;
 	}
 
-	.cards > .spotify {
-		grid-area: spotify;
+	.cards > .listening-tile {
+		grid-area: listening;
 	}
 
 	.cards > .media-tile {
@@ -293,7 +296,7 @@ const mapickProject = {
 				'about about'
 				'featured project'
 				'now meta'
-				'spotify media'
+				'listening media'
 				'terminal live'
 				'signature signature';
 		}
@@ -322,7 +325,7 @@ const mapickProject = {
 				'project'
 				'now'
 				'meta'
-				'spotify'
+				'listening'
 				'media'
 				'live'
 				'terminal'

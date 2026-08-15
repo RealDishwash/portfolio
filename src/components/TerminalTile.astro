@@ -131,9 +131,9 @@
 				{ text: 'resume.pdf', href: 'https://realdishwash.github.io/resume/resume.pdf' },
 			],
 			now: () => {
-				const title = readText('#spotify-track-title');
-				const artists = readText('#spotify-artists');
-				const state = readText('#spotify-state');
+				const title = readText('#listening-track-title');
+				const artists = readText('#listening-artists');
+				const state = readText('#listening-state');
 				if (!title || title.includes('...') || state === 'Unavailable') {
 					return [{ text: 'Nothing playing right now.', tone: 'muted' }];
 				}

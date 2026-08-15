@@ -1,0 +1,224 @@
+---
+import '../styles/media-card.css';
+
+interface Props {
+  lastFmPath: string;
+}
+
+const { lastFmPath } = Astro.props;
+---
+
+<article class="tile media-card listening-tile" id="listening-tile">
+  <div class="media-card-head">
+    <h2>Now Playing</h2>
+    <span class="media-card-state" id="listening-state">Loading</span>
+  </div>
+  <div class="media-card-body">
+    <a
+      class="media-card-art-link"
+      data-listening-link
+      href="https://www.last.fm/"
+      target="_blank"
+      rel="noreferrer"
+      aria-label="Open on Last.fm"
+    >
+      <img
+        id="listening-art"
+        src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+        alt="Album art"
+        loading="lazy"
+        decoding="async"
+      />
+    </a>
+    <div class="media-card-meta" aria-live="polite">
+      <a
+        class="media-card-title"
+        id="listening-track-title"
+        data-listening-link
+        href="https://www.last.fm/"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Checking Qobuz...
+      </a>
+      <p class="media-card-subtitle" id="listening-artists">
+        Fetching scrobbles from Last.fm.
+      </p>
+    </div>
+  </div>
+  <span class="media-card-corner-link" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d={lastFmPath} fill="currentColor"></path>
+    </svg>
+  </span>
+</article>
+
+<script>
+	type ListeningPayload = {
+		isPlaying: boolean;
+		trackName: string;
+		artists: string;
+		albumName?: string;
+		albumImageUrl?: string;
+		trackUrl?: string;
+		playedAt?: string | null;
+	};
+
+	type ListeningViewState = {
+		listeningState: 'loading' | 'error' | 'playing' | 'idle';
+		stateLabel: string;
+		trackTitle: string;
+		trackArtists: string;
+		imageUrl: string;
+		trackUrl: string;
+	};
+
+	const DEFAULT_TRACK_URL = 'https://www.last.fm/';
+	const POLL_INTERVAL_MS = 15_000;
+	const ENDPOINT = '/api/lastfm-recent';
+	const PLACEHOLDER_ART = `data:image/svg+xml,${encodeURIComponent(
+		"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#131b26'/><stop offset='1' stop-color='#0c121a'/></linearGradient></defs><rect width='64' height='64' fill='url(#g)'/><circle cx='32' cy='32' r='15' fill='none' stroke='#2f3a4b' stroke-width='2'/><circle cx='32' cy='32' r='2.8' fill='#2f3a4b'/></svg>"
+	)}`;
+
+	const tileNode = document.querySelector<HTMLElement>('#listening-tile');
+	const stateNode = document.querySelector<HTMLElement>('#listening-state');
+	const titleNode = document.querySelector<HTMLElement>('#listening-track-title');
+	const artistsNode = document.querySelector<HTMLElement>('#listening-artists');
+	const metaNode = document.querySelector<HTMLElement>('#listening-tile .media-card-meta');
+	const artNode = document.querySelector<HTMLImageElement>('#listening-art');
+	const linkNodes = Array.from(
+		document.querySelectorAll<HTMLAnchorElement>('[data-listening-link]')
+	);
+
+	if (tileNode && stateNode && titleNode && artistsNode && metaNode && artNode && linkNodes.length) {
+		const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+		const applyLink = (url: string) => {
+			for (const node of linkNodes) node.href = url;
+		};
+
+		const clearMotionClasses = () => {
+			artNode.classList.remove('is-swapping');
+			metaNode.classList.remove('is-swapping');
+		};
+
+		const relativePlayed = (playedAt?: string | null) => {
+			if (!playedAt) return 'Last played';
+			const playedMs = Date.parse(playedAt);
+			if (Number.isNaN(playedMs)) return 'Last played';
+			const minutes = Math.max(0, Math.floor((Date.now() - playedMs) / 60_000));
+			if (minutes < 1) return 'Just now';
+			if (minutes < 60) return `${minutes}m ago`;
+			const hours = Math.floor(minutes / 60);
+			if (hours < 24) return `${hours}h ago`;
+			const days = Math.floor(hours / 24);
+			return days === 1 ? 'Yesterday' : `${days}d ago`;
+		};
+
+		const applyView = (viewState: ListeningViewState) => {
+			tileNode.dataset.listeningState = viewState.listeningState;
+			stateNode.textContent = viewState.stateLabel;
+			titleNode.textContent = viewState.trackTitle;
+			artistsNode.textContent = viewState.trackArtists;
+			artNode.src = viewState.imageUrl;
+			applyLink(viewState.trackUrl);
+		};
+
+		let lastViewState: ListeningViewState | null = null;
+		let swapTimeoutId: number | undefined;
+		let motionResetTimeoutId: number | undefined;
+
+		const setViewState = (nextViewState: ListeningViewState) => {
+			const hasPrevious = Boolean(lastViewState);
+			const stateChanged = lastViewState?.stateLabel !== nextViewState.stateLabel;
+			const textChanged =
+				lastViewState?.trackTitle !== nextViewState.trackTitle ||
+				lastViewState?.trackArtists !== nextViewState.trackArtists;
+			const artChanged = lastViewState?.imageUrl !== nextViewState.imageUrl;
+			const shouldAnimate =
+				hasPrevious && !prefersReducedMotion && (stateChanged || textChanged || artChanged);
+
+			window.clearTimeout(swapTimeoutId);
+			window.clearTimeout(motionResetTimeoutId);
+			stateNode.classList.remove('is-state-bump');
+			clearMotionClasses();
+
+			if (!shouldAnimate) {
+				applyView(nextViewState);
+				lastViewState = nextViewState;
+				return;
+			}
+
+			if (stateChanged) stateNode.classList.add('is-state-bump');
+			if (artChanged) artNode.classList.add('is-swapping');
+			if (textChanged) metaNode.classList.add('is-swapping');
+
+			swapTimeoutId = window.setTimeout(() => {
+				applyView(nextViewState);
+				motionResetTimeoutId = window.setTimeout(() => {
+					stateNode.classList.remove('is-state-bump');
+					clearMotionClasses();
+				}, 130);
+			}, 110);
+
+			lastViewState = nextViewState;
+		};
+
+		const setLoading = () => {
+			setViewState({
+				listeningState: 'loading',
+				stateLabel: 'Loading',
+				trackTitle: 'Checking Qobuz...',
+				trackArtists: 'Fetching scrobbles from Last.fm.',
+				imageUrl: PLACEHOLDER_ART,
+				trackUrl: DEFAULT_TRACK_URL,
+			});
+		};
+
+		const setError = () => {
+			setViewState({
+				listeningState: 'error',
+				stateLabel: 'Unavailable',
+				trackTitle: 'Listening status unavailable',
+				trackArtists: 'Unable to load Last.fm scrobbles right now.',
+				imageUrl: PLACEHOLDER_ART,
+				trackUrl: DEFAULT_TRACK_URL,
+			});
+		};
+
+		const setListening = (payload: ListeningPayload) => {
+			const artistsAndAlbum = payload.albumName
+				? `${payload.artists} • ${payload.albumName}`
+				: payload.artists;
+			setViewState({
+				listeningState: payload.isPlaying ? 'playing' : 'idle',
+				stateLabel: payload.isPlaying ? 'Live' : relativePlayed(payload.playedAt),
+				trackTitle: payload.trackName || 'Unknown track',
+				trackArtists: artistsAndAlbum || 'Unknown artist',
+				imageUrl: payload.albumImageUrl || PLACEHOLDER_ART,
+				trackUrl: payload.trackUrl || DEFAULT_TRACK_URL,
+			});
+		};
+
+		let isRequestInFlight = false;
+		const loadListening = async () => {
+			if (isRequestInFlight) return;
+			isRequestInFlight = true;
+			try {
+				const response = await fetch(ENDPOINT, { headers: { Accept: 'application/json' } });
+				if (!response.ok) throw new Error('listening request failed');
+				const payload = (await response.json()) as ListeningPayload;
+				if (!payload?.trackName || !payload.artists) throw new Error('invalid payload');
+				setListening(payload);
+			} catch {
+				setError();
+			} finally {
+				isRequestInFlight = false;
+			}
+		};
+
+		setLoading();
+		void loadListening();
+		window.setInterval(() => void loadListening(), POLL_INTERVAL_MS);
+	}
+</script>
