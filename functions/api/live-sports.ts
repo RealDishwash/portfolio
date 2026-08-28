@@ -34,7 +34,7 @@ type Leader = {
 };
 
 type SportEvent = {
-  league: 'NBA' | 'F1';
+  league: 'NBA' | 'MLB' | 'F1';
   state: EventState;
   title: string;
   subtitle: string;
@@ -48,6 +48,7 @@ type SportEvent = {
 
 type LiveSportsPayload = {
   nba: SportEvent | null;
+  mlb: SportEvent | null;
   f1: SportEvent | null;
   lastUpdated: string;
 };
@@ -56,10 +57,12 @@ type LiveSportsPayload = {
 // Exported (along with the mappers below) so the transformation logic can be exercised
 // directly in tests; Cloudflare only ever invokes `onRequest`.
 export const NBA_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
+export const MLB_URL = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
 export const F1_URL = 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard';
 const CACHE_CONTROL = 'public, max-age=30, s-maxage=30';
 const PAYLOAD_CACHE_KEY = 'https://portfolio-internal/live-sports/payload';
 const NBA_FALLBACK = 'https://www.espn.com/nba/scoreboard';
+const MLB_FALLBACK = 'https://www.espn.com/mlb/scoreboard';
 const F1_FALLBACK = 'https://www.espn.com/f1/schedule';
 
 // ESPN models games and races identically: an `events[]` array whose entries carry
@@ -178,6 +181,37 @@ export const mapNbaEvent = (event: EspnEvent): SportEvent | null => {
     away: toCompetitor(awayRaw),
     leaders: [],
     detailUrl: firstLink(event, NBA_FALLBACK),
+  };
+};
+
+export const mapMlbEvent = (event: EspnEvent): SportEvent | null => {
+  const competition = event.competitions?.[0];
+  if (!competition) return null;
+
+  const competitors = competition.competitors || [];
+  const homeRaw = competitors.find((c) => c.homeAway === 'home') || competitors[0];
+  const awayRaw = competitors.find((c) => c.homeAway === 'away') || competitors[1];
+  if (!homeRaw || !awayRaw) return null;
+
+  const toCompetitor = (c: EspnCompetitor): Competitor => ({
+    name: c.team?.shortDisplayName || c.team?.displayName || c.team?.abbreviation || 'TBD',
+    abbr: c.team?.abbreviation || '',
+    logo: c.team?.logo || '',
+    score: typeof c.score === 'string' ? c.score : '',
+  });
+
+  const status = competition.status || event.status;
+  return {
+    league: 'MLB',
+    state: stateFromStatus(status),
+    title: event.shortName || event.name || 'MLB game',
+    subtitle: '',
+    statusDetail: status?.type?.shortDetail || '',
+    startDate: competition.startDate || event.date || '',
+    home: toCompetitor(homeRaw),
+    away: toCompetitor(awayRaw),
+    leaders: [],
+    detailUrl: firstLink(event, MLB_FALLBACK),
   };
 };
 
@@ -310,13 +344,15 @@ export const onRequest = async (context: FunctionContext) => {
     }
 
     // One outage shouldn't blank the whole tile, so resolve each league independently.
-    const [nba, f1] = await Promise.all([
+    const [nba, mlb, f1] = await Promise.all([
       fetchLeague(NBA_URL, mapNbaEvent).catch(() => null),
+      fetchLeague(MLB_URL, mapMlbEvent).catch(() => null),
       fetchLeague(F1_URL, mapF1Event).catch(() => null),
     ]);
 
     const payload: LiveSportsPayload = {
       nba,
+      mlb,
       f1,
       lastUpdated: new Date().toISOString(),
     };
