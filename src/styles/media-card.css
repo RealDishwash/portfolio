@@ -5,6 +5,27 @@
 	flex-direction: column;
 	gap: 0.68rem;
 	position: relative;
+	--media-art-column: clamp(160px, 38%, 240px);
+	--media-card-min-height: var(--media-art-column);
+}
+
+.tile.media-card {
+	padding: 0;
+}
+
+.cards > .tile.listening-tile {
+	height: auto;
+	align-self: start;
+}
+
+.listening-tile .media-card-art-link {
+	height: auto;
+	aspect-ratio: 1;
+	align-self: start;
+}
+
+.listening-tile {
+	--media-art-column: clamp(160px, 23vw, 240px);
 }
 
 .media-card-head {
@@ -14,55 +35,142 @@
 	gap: 0.72rem;
 }
 
-.media-card-state {
+.media-card-time {
 	font-family: var(--font-mono);
 	font-size: var(--label-sm);
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	color: var(--muted);
-	border: 1px solid var(--border);
-	padding: 0.18rem 0.45rem;
-	border-radius: 999px;
-	background: var(--tile-strong);
 }
 
-.listening-tile[data-listening-state='playing'] .media-card-state {
+.media-card-time-separator {
+	color: var(--muted);
+}
+
+.listening-tile[data-listening-state='playing'] .media-card-time {
 	color: color-mix(in srgb, var(--success), white 22%);
-	border-color: color-mix(in srgb, var(--success), var(--border) 45%);
-	background: color-mix(in srgb, var(--success), var(--tile-strong) 90%);
 }
 
-.listening-tile[data-listening-state='idle'] .media-card-state {
+.listening-tile[data-listening-state='idle'] .media-card-time {
 	color: var(--text-soft);
 }
 
-.listening-tile[data-listening-state='error'] .media-card-state,
-.media-tile[data-media-state='error'] .media-card-state {
-	color: var(--accent-soft);
-	border-color: color-mix(in srgb, var(--accent-soft), var(--border) 46%);
+.listening-tile[data-listening-state='error'] .media-card-time,
+.media-tile[data-media-state='error'] .media-card-time,
+.listening-tile[data-listening-state='error'] .media-card-time-separator,
+.media-tile[data-media-state='error'] .media-card-time-separator {
+	display: none;
 }
 
 .media-card-body {
 	display: grid;
-	grid-template-columns: 108px minmax(0, 1fr);
+	grid-template-columns: var(--media-art-column) minmax(0, 1fr);
 	gap: 0.95rem;
-	align-items: center;
-	/* Fill the tile so the art can use the card's free vertical space. */
+	align-items: stretch;
 	flex: 1;
+	min-height: var(--media-card-min-height);
 }
 
 .media-card-art-link {
 	display: block;
-	width: 108px;
-	height: 108px;
-	border-radius: var(--radius-sm);
+	width: 100%;
+	height: 100%;
+	border-radius: calc(var(--radius-lg) - 1px) 0 0 calc(var(--radius-lg) - 1px);
 	border: 1px solid var(--border);
 	background: var(--tile-strong);
 	overflow: hidden;
 }
 
-.media-tile .media-card-art-link {
-	height: auto;
+.media-tile .media-card-meta {
+	align-self: stretch;
+}
+
+.media-tile {
+	--media-card-min-height: calc(var(--media-art-column) * 1.5);
+}
+
+.media-card-panel {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 100%;
+	padding: 1.15rem 1.15rem 1.15rem 0;
+}
+
+.media-card-content {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 1rem;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+
+.media-card-controls {
+	display: flex;
+	align-items: center;
+	gap: 0.42rem;
+}
+
+.media-card-control {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	padding: 0;
+	border: 1px solid var(--border);
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--tile-strong), white 3%);
+	color: var(--text-soft);
+	line-height: 0;
+	transition:
+		border-color 0.18s ease,
+		background 0.18s ease,
+		color 0.18s ease,
+		opacity 0.18s ease;
+}
+
+.media-card-control svg {
+	display: block;
+	width: 1rem;
+	height: 1rem;
+}
+
+.media-card-control-primary {
+	width: 2.45rem;
+	height: 2.45rem;
+	border-color: color-mix(in srgb, var(--accent-soft), var(--border) 42%);
+	background: color-mix(in srgb, var(--accent), var(--tile-strong) 84%);
+	color: var(--text);
+}
+
+.media-card-control:not(:disabled):hover {
+	border-color: color-mix(in srgb, var(--accent-soft), white 26%);
+	background: color-mix(in srgb, var(--accent), var(--tile-strong) 72%);
+	color: #fff;
+}
+
+.media-card-control:disabled {
+	cursor: not-allowed;
+	opacity: 0.48;
+}
+
+.media-card-control-link {
+	text-decoration: none;
+}
+
+.control-icon-pause {
+	display: none;
+}
+
+.listening-tile[data-listening-state='playing'] .control-icon-play {
+	display: none;
+}
+
+.listening-tile[data-listening-state='playing'] .control-icon-pause {
+	display: block;
 }
 
 .media-card-art-link:hover {
@@ -83,8 +191,8 @@
 #media-art {
 	display: block;
 	width: 100%;
-	height: auto;
-	object-fit: contain;
+	height: 100%;
+	object-fit: cover;
 	transform-origin: center;
 	transition:
 		opacity 0.18s ease,
@@ -140,9 +248,8 @@
 	font-size: 0.98rem;
 	color: var(--text);
 	line-height: 1.28;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
 .media-card-title:hover {
@@ -154,13 +261,12 @@
 	font-size: var(--text-sm);
 	color: var(--text-soft);
 	line-height: 1.35;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
 
-.media-card-state.is-state-bump {
+.media-card-time.is-state-bump {
 	animation: mediaCardStateBump 0.24s ease;
 }
 
@@ -180,18 +286,10 @@
 }
 
 @media (max-width: 380px) {
-	.media-card-body {
-		grid-template-columns: 84px minmax(0, 1fr);
+	.media-card {
+		--media-art-column: 104px;
 	}
 
-	.media-card-art-link {
-		width: 84px;
-		height: 84px;
-	}
-
-	.media-tile .media-card-art-link {
-		height: auto;
-	}
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -201,7 +299,7 @@
 		transition: none;
 	}
 
-	.media-card-state.is-state-bump {
+	.media-card-time.is-state-bump {
 		animation: none;
 	}
 

@@ -2,17 +2,13 @@
 import '../styles/media-card.css';
 
 interface Props {
-  floppyPath: string;
+  mediaPath: string;
 }
 
-const { floppyPath } = Astro.props;
+const { mediaPath } = Astro.props;
 ---
 
 <article class="tile media-card media-tile" id="media-tile">
-  <div class="media-card-head">
-    <h2>Recently Watched</h2>
-    <span class="media-card-state" id="media-state">Loading</span>
-  </div>
   <div class="media-card-body">
     <a
       class="media-card-art-link"
@@ -30,27 +26,75 @@ const { floppyPath } = Astro.props;
         decoding="async"
       />
     </a>
-    <div class="media-card-meta" aria-live="polite">
-      <a
-        class="media-card-title"
-        id="media-title"
-        data-media-link
-        href="https://github.com/dannyvfilms/Floppy"
-        target="_blank"
-        rel="noreferrer"
-      >
-        Checking Floppy...
-      </a>
-      <p class="media-card-subtitle" id="media-subtitle">Fetching your latest watch.</p>
-      <div class="media-rating" id="media-rating" role="img" hidden>
-        <span class="media-rating-base">★★★★★</span>
-        <span class="media-rating-fill" id="media-rating-fill">★★★★★</span>
+    <div class="media-card-panel">
+      <div class="media-card-head">
+        <h2>Recently Watched</h2>
+      </div>
+      <div class="media-card-content">
+        <div class="media-card-meta" aria-live="polite">
+          <a
+            class="media-card-title"
+            id="media-title"
+            data-media-link
+            href="https://github.com/dannyvfilms/Floppy"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Checking Floppy...
+          </a>
+          <p class="media-card-subtitle" id="media-subtitle">
+            <span id="media-subtitle-text">Fetching your latest watch.</span>
+            <span class="media-card-time-separator" aria-hidden="true"> · </span>
+            <span class="media-card-time" id="media-state">Loading</span>
+          </p>
+          <div class="media-rating" id="media-rating" role="img" hidden>
+            <span class="media-rating-base">★★★★★</span>
+            <span class="media-rating-fill" id="media-rating-fill">★★★★★</span>
+          </div>
+        </div>
+        <div class="media-card-controls" role="group" aria-label="Watch controls">
+          <button
+            class="media-card-control"
+            type="button"
+            disabled
+            aria-label="Previous item"
+            title="Previous item unavailable"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 5v14M18 6.5 10 12l8 5.5V6.5Z" fill="currentColor"></path>
+            </svg>
+          </button>
+          <a
+            class="media-card-control media-card-control-primary media-card-control-link"
+            data-media-link
+            href="https://github.com/dannyvfilms/Floppy"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open this watch in Floppy"
+            title="Open in Floppy"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m8 5 10 7-10 7V5Z" fill="currentColor"></path>
+            </svg>
+          </a>
+          <button
+            class="media-card-control"
+            type="button"
+            disabled
+            aria-label="Next item"
+            title="Next item unavailable"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 5v14M6 6.5l8 5.5-8 5.5V6.5Z" fill="currentColor"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
   <span class="media-card-corner-link" aria-hidden="true">
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d={floppyPath} fill="currentColor"></path>
+      <path d={mediaPath} fill="currentColor"></path>
     </svg>
   </span>
 </article>
@@ -85,7 +129,7 @@ const { floppyPath } = Astro.props;
 	const tileNode = document.querySelector<HTMLElement>('#media-tile');
 	const stateNode = document.querySelector<HTMLElement>('#media-state');
 	const titleNode = document.querySelector<HTMLElement>('#media-title');
-	const subtitleNode = document.querySelector<HTMLElement>('#media-subtitle');
+	const subtitleNode = document.querySelector<HTMLElement>('#media-subtitle-text');
 	const metaNode = document.querySelector<HTMLElement>('#media-tile .media-card-meta');
 	const artNode = document.querySelector<HTMLImageElement>('#media-art');
 	const ratingNode = document.querySelector<HTMLElement>('#media-rating');

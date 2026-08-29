@@ -23,9 +23,6 @@ import {
 	siTruenas,
 } from 'simple-icons';
 
-const floppyPath =
-	'M17 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4Zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm3-10H5V5h10v4Z';
-
 const tools = [
 	{ name: 'Docker', iconPath: siDocker.path, url: 'https://www.docker.com/' },
 	{ name: 'TrueNAS', iconPath: siTruenas.path, url: 'https://www.truenas.com/' },
@@ -55,7 +52,7 @@ const mapickProject = {
 <Layout title="Vishwas Parpattegar | Portfolio">
 	<div class="backdrop" aria-hidden="true"></div>
 	<main class="page">
-		<HeroTile profilePhoto={profilePhoto} githubPath={siGithub.path} traktPath={siTrakt.path} />
+		<HeroTile profilePhoto={profilePhoto} githubPath={siGithub.path} />
 
 		<section class="cards">
 			<EngineeringSnapshotTile tools={tools} />
@@ -64,7 +61,7 @@ const mapickProject = {
 			<StatusTile />
 			<CurrentConditionsTile />
 			<ListeningTile lastFmPath={siLastdotfm.path} />
-			<RecentlyWatchedTile floppyPath={floppyPath} />
+			<RecentlyWatchedTile mediaPath={siTrakt.path} />
 			<LiveSportsTile />
 			<TerminalTile />
 			<SignatureTile />
