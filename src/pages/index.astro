@@ -1,359 +1,142 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import HeroTile from '../components/HeroTile.astro';
-import EngineeringSnapshotTile from '../components/EngineeringSnapshotTile.astro';
-import ProjectTile from '../components/ProjectTile.astro';
-import CurrentConditionsTile from '../components/CurrentConditionsTile.astro';
-import StatusTile from '../components/StatusTile.astro';
 import ListeningTile from '../components/ListeningTile.astro';
 import RecentlyWatchedTile from '../components/RecentlyWatchedTile.astro';
-import LiveSportsTile from '../components/LiveSportsTile.astro';
-import TerminalTile from '../components/TerminalTile.astro';
-import SignatureTile from '../components/SignatureTile.astro';
 import profilePhoto from '../assets/profile-photo.png';
-import {
-	siAstro,
-	siDocker,
-	siFishshell,
-	siGithub,
-	siKubernetes,
-	siPython,
-	siLastdotfm,
-	siTrakt,
-	siTruenas,
-} from 'simple-icons';
-
-const tools = [
-	{ name: 'Docker', iconPath: siDocker.path, url: 'https://www.docker.com/' },
-	{ name: 'TrueNAS', iconPath: siTruenas.path, url: 'https://www.truenas.com/' },
-	{ name: 'Kubernetes', iconPath: siKubernetes.path, url: 'https://kubernetes.io/' },
-	{ name: 'Astro', iconPath: siAstro.path, url: 'https://astro.build/' },
-	{ name: 'Python', iconPath: siPython.path, url: 'https://www.python.org/' },
-	{ name: 'Fish', iconPath: siFishshell.path, url: 'https://fishshell.com/' },
-];
-
-const featuredProject = {
-	title: 'Homelab',
-	description:
-		'Self-hosted infrastructure built on TrueNAS — a RAIDZ1 storage array running Immich photo backup and SMB shares, with containerised services managed through Docker.',
-	stack: ['TrueNAS', 'RAIDZ1', 'Docker', 'Immich'],
-};
-
-const mapickProject = {
-	title: 'mapick',
-	description:
-		'A clean Best-of-3 map veto tool for the Valorant competitive map pool — bans, picks, and side selection following the official Bo3 order.',
-	stack: ['JavaScript', 'HTML', 'CSS'],
-	href: 'https://mapick.vishy.org',
-	linkLabel: 'View',
-};
+import { siGithub, siLastdotfm, siTrakt } from 'simple-icons';
 ---
 
-<Layout title="Vishwas Parpattegar | Portfolio">
-	<div class="backdrop" aria-hidden="true"></div>
-	<main class="page">
+<Layout
+	title="Vishwas Island"
+	description="Vishwas Parpattegar's little corner of the internet — see what I'm listening to and watching lately."
+>
+	<main class="island-page">
 		<HeroTile profilePhoto={profilePhoto} githubPath={siGithub.path} />
 
-		<section class="cards">
-			<EngineeringSnapshotTile tools={tools} />
-			<ProjectTile featured {...featuredProject} />
-			<ProjectTile {...mapickProject} />
-			<StatusTile />
-			<CurrentConditionsTile />
-			<ListeningTile lastFmPath={siLastdotfm.path} />
-			<RecentlyWatchedTile mediaPath={siTrakt.path} />
-			<LiveSportsTile />
-			<TerminalTile />
-			<SignatureTile />
+		<section class="broadcasts" aria-labelledby="broadcasts-title">
+			<header class="broadcasts-header">
+				<p>Live from the island</p>
+				<h2 id="broadcasts-title">Two places worth checking in on.</h2>
+			</header>
+			<div class="media-grid">
+				<ListeningTile lastFmPath={siLastdotfm.path} />
+				<RecentlyWatchedTile mediaPath={siTrakt.path} />
+			</div>
 		</section>
+
+		<footer>
+			<p>Unofficial fan-made interface inspired by Tomodachi Life. Nintendo is not affiliated with this site.</p>
+		</footer>
 	</main>
 </Layout>
 
-<script>
-	const pageNode = document.querySelector<HTMLElement>('.page');
-	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-	if (pageNode && !prefersReducedMotion) {
-		const introTiles = pageNode.querySelectorAll<HTMLElement>('.tile');
-		const introDurationMs = 560;
-		pageNode.classList.add('is-intro-active');
-		let maxIntroDelayMs = 0;
-
-		introTiles.forEach((tile, index) => {
-			const delay = index * 60;
-			maxIntroDelayMs = Math.max(maxIntroDelayMs, delay);
-			tile.style.setProperty('--intro-delay', `${delay}ms`);
-		});
-
-		const introTimeoutId = window.setTimeout(() => {
-			pageNode.classList.remove('is-intro-active');
-		}, maxIntroDelayMs + introDurationMs + 90);
-
-		window.addEventListener(
-			'pagehide',
-			() => {
-				window.clearTimeout(introTimeoutId);
-			},
-			{ once: true }
-		);
-	}
-</script>
-
 <style is:global>
-	.page {
-		width: min(1120px, 100% - 1.5rem);
-		margin: 1.25rem auto 2.5rem;
-		position: relative;
-		z-index: 2;
-	}
-
-	.backdrop {
-		position: fixed;
-		inset: 0;
-		pointer-events: none;
-		overflow: hidden;
-		isolation: isolate;
+	body {
+		min-width: 280px;
+		min-height: 100vh;
 		background:
-			radial-gradient(74% 58% at 12% -8%, rgb(255 95 86 / 20%), transparent 70%),
-			radial-gradient(62% 48% at 88% 10%, rgb(39 201 63 / 12%), transparent 72%),
-			radial-gradient(78% 56% at 50% 104%, rgb(140 164 196 / 11%), transparent 72%),
-			linear-gradient(180deg, #0d141d 0%, #09111a 45%, #070b10 100%);
-		z-index: 1;
+			radial-gradient(circle at 12% 8%, rgb(255 255 255 / 84%) 0 2.8rem, transparent 2.9rem),
+			radial-gradient(circle at 88% 16%, rgb(255 255 255 / 70%) 0 2.2rem, transparent 2.3rem),
+			linear-gradient(180deg, #83d6f1 0%, #bcecf7 47%, #56bed7 47.2%, #1e93bd 100%);
+		background-attachment: fixed;
+		background-color: #1e93bd;
 	}
 
-	.backdrop::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		background:
-			repeating-linear-gradient(0deg, rgb(255 255 255 / 2%) 0 1px, transparent 1px 5px),
-			repeating-linear-gradient(90deg, rgb(255 255 255 / 1.5%) 0 1px, transparent 1px 6px);
-		opacity: 0.2;
-	}
-
-	.backdrop::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(130% 94% at 50% 18%, transparent 44%, rgb(2 5 9 / 54%) 100%);
-	}
-
-	.tile {
-		background: linear-gradient(180deg, color-mix(in srgb, var(--tile), white 3%), var(--tile-alt));
-		border: 1px solid var(--border);
-		border-radius: var(--radius-lg);
-		padding: 1.15rem;
+	.island-page {
+		width: min(1180px, calc(100% - 2rem));
+		margin-inline: auto;
+		padding: 1.25rem 0 2rem;
 		position: relative;
-		overflow: hidden;
-		isolation: isolate;
-		box-shadow: 0 14px 30px -22px rgb(0 0 0 / 55%);
-		transition:
-			border-color 0.2s ease,
-			transform 0.2s ease,
-			box-shadow 0.2s ease;
 	}
 
-	.tile::before {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 1px;
-		background: color-mix(in srgb, var(--border), white 12%);
-		opacity: 0.55;
-		pointer-events: none;
-	}
-
-	.tile:hover {
-		border-color: color-mix(in srgb, var(--accent), var(--border) 38%);
-		transform: translateY(-2px);
-		box-shadow: 0 20px 38px -22px rgb(0 0 0 / 65%);
-	}
-
-	.page.is-intro-active .tile {
-		opacity: 0;
-		transform: translateY(42px);
-		animation: tileRushIn 560ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-		animation-delay: var(--intro-delay, 0ms);
-	}
-
-	@keyframes tileRushIn {
-		0% {
-			opacity: 0;
-			transform: translateY(42px);
-		}
-		72% {
-			opacity: 1;
-		}
-		100% {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	h2 {
-		margin: 0;
-		font-size: clamp(1.1rem, 1.3vw, 1.45rem);
-		line-height: 1.25;
-		font-weight: 600;
-		font-family: var(--font-sans);
-		letter-spacing: -0.01em;
-		color: var(--text);
-	}
-
-	.cards h2 {
-		font-family: var(--font-mono);
-		font-size: clamp(1.02rem, 1.1vw, 1.18rem);
-		font-weight: 500;
-		letter-spacing: 0.09em;
-		text-transform: uppercase;
-	}
-
-	p,
-	li {
-		font-family: var(--font-sans);
-		color: var(--text-soft);
-		line-height: 1.5;
-		font-size: var(--text-base);
-		max-width: 52ch;
-	}
-
-	a:focus-visible {
-		outline: 2px solid color-mix(in srgb, var(--accent), white 25%);
-		outline-offset: 2px;
-	}
-
-	.muted {
-		color: var(--muted);
-	}
-
-	.cards {
-		margin-top: 0.95rem;
+	.media-grid {
 		display: grid;
-		gap: 0.95rem;
-		grid-template-columns: repeat(6, minmax(0, 1fr));
-		grid-template-areas:
-			'about about about featured featured featured'
-			'project project project now now now'
-			'meta meta listening listening media media'
-			'terminal terminal terminal terminal live live'
-			'signature signature signature signature signature signature';
-		align-items: stretch;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: clamp(0.85rem, 2vw, 1.35rem);
+		margin-top: 0;
+		position: relative;
+		z-index: 5;
 	}
 
-	.cards > .about {
-		grid-area: about;
+	.broadcasts {
+		margin-top: clamp(1.4rem, 3vw, 2.4rem);
 	}
 
-	.cards > .project.is-featured {
-		grid-area: featured;
+	.broadcasts-header {
+		display: flex;
+		align-items: end;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 0.9rem;
+		padding-inline: 0.2rem;
 	}
 
-	.cards > .project:not(.is-featured) {
-		grid-area: project;
+	.broadcasts-header p {
+		margin: 0;
+		font-family: 'IBM Plex Mono', monospace;
+		font-size: 0.68rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #e7fcff;
 	}
 
-	.cards > .now-tile {
-		grid-area: now;
+	.broadcasts-header h2 {
+		margin: 0;
+		font-family: 'Trebuchet MS', 'Arial Rounded MT Bold', sans-serif;
+		font-size: clamp(1.1rem, 2.2vw, 1.55rem);
+		color: #fffdf1;
+		text-align: right;
 	}
 
-	.cards > .meta {
-		grid-area: meta;
+	footer {
+		width: fit-content;
+		margin: 1.4rem auto 0;
+		padding: 0.62rem 1rem;
+		border: 2px solid rgb(116 79 35 / 20%);
+		border-radius: 999px;
+		background: rgb(255 248 221 / 88%);
+		box-shadow: 0 5px 0 rgb(110 72 30 / 13%);
 	}
 
-	.cards > .listening-tile {
-		grid-area: listening;
+	footer p {
+		margin: 0;
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: #30455a;
+		text-align: center;
 	}
 
-	.cards > .media-tile {
-		grid-area: media;
-	}
-
-	.cards > .live-sports {
-		grid-area: live;
-	}
-
-	.cards > .terminal {
-		grid-area: terminal;
-	}
-
-	.cards > .signature {
-		grid-area: signature;
-	}
-
-	.cards > .tile {
-		height: 100%;
-	}
-
-	@media (max-width: 980px) {
-		.cards {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			grid-template-areas:
-				'about about'
-				'featured project'
-				'now meta'
-				'listening media'
-				'terminal live'
-				'signature signature';
-		}
-	}
-
-	@media (max-width: 760px) {
-		.backdrop {
-			background:
-				radial-gradient(92% 58% at 0% -12%, rgb(255 95 86 / 17%), transparent 70%),
-				radial-gradient(88% 52% at 100% 7%, rgb(39 201 63 / 10%), transparent 74%),
-				radial-gradient(108% 66% at 50% 110%, rgb(140 164 196 / 9%), transparent 74%),
-				linear-gradient(180deg, #0c121b 0%, #081018 48%, #070b10 100%);
+	@media (max-width: 780px) {
+		.island-page {
+			width: min(620px, calc(100% - 1.25rem));
+			padding-top: 0.7rem;
+			padding-bottom: 2rem;
 		}
 
-		.backdrop::before {
-			opacity: 0.14;
-		}
-	}
-
-	@media (max-width: 720px) {
-		.cards {
+		.media-grid {
 			grid-template-columns: 1fr;
-			grid-template-areas:
-				'about'
-				'featured'
-				'project'
-				'now'
-				'meta'
-				'listening'
-				'media'
-				'live'
-				'terminal'
-				'signature';
 		}
 
-		.cards > .tile {
-			height: auto;
-		}
+		.broadcasts { margin-top: 1.2rem; }
 	}
 
-	@media (max-width: 640px) {
-		.page {
-			width: min(1120px, 100% - 1rem);
-			margin-top: 0.8rem;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.page.is-intro-active .tile {
-			animation: none;
-			opacity: 1;
-			transform: none;
+	@media (max-width: 460px) {
+		.island-page {
+			width: 100%;
+			padding-top: 0;
 		}
 
-		.tile {
-			transition: none;
+		.media-grid {
+			padding-inline: 0.65rem;
+			gap: 0.78rem;
 		}
 
-		.tile:hover {
-			transform: none;
-		}
+		.broadcasts { margin-top: 1rem; }
+		.broadcasts-header { display: block; padding-inline: 0.8rem; }
+		.broadcasts-header h2 { margin-top: 0.18rem; text-align: left; font-size: 1.15rem; }
+
+		footer { display: none; }
 	}
 </style>
