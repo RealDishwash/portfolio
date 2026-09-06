@@ -1,5 +1,5 @@
 ---
-// Live NBA + MLB + F1 results, sourced from ESPN's public scoreboard API via /api/live-sports.
+// Live NBA + F1 results, sourced from ESPN's public scoreboard API via /api/live-sports.
 // Shows an in-progress game/race when one exists, otherwise the next scheduled one,
 // otherwise the most recent final.
 ---
@@ -40,7 +40,6 @@
 			</div>
 
 			<div class="ls-row-body ls-nba-body">
-				<p class="ls-empty-message" id="nba-empty-message"></p>
 				<div class="ls-team" id="nba-away">
 					<img class="ls-logo" id="nba-away-logo" alt="" aria-hidden="true" decoding="async" />
 					<span class="ls-team-name" id="nba-away-name">—</span>
@@ -54,49 +53,6 @@
 			</div>
 
 			<p class="ls-status" id="nba-status">Loading…</p>
-		</a>
-
-		<a
-			class="ls-row"
-			id="mlb-row"
-			data-state="loading"
-			href="https://www.espn.com/mlb/scoreboard"
-			target="_blank"
-			rel="noreferrer"
-		>
-			<div class="ls-row-top">
-				<span class="ls-league ls-league-mlb">
-					<img
-						class="ls-league-logo ls-league-logo-mlb"
-						src="https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png"
-						alt="MLB"
-						width="500"
-						height="500"
-						loading="lazy"
-						decoding="async"
-					/>
-				</span>
-				<span class="ls-badge" id="mlb-badge">
-					<span class="ls-dot" aria-hidden="true"></span>
-					<span class="ls-badge-text" id="mlb-badge-text">···</span>
-				</span>
-			</div>
-
-			<div class="ls-row-body ls-mlb-body">
-				<p class="ls-empty-message" id="mlb-empty-message"></p>
-				<div class="ls-team" id="mlb-away">
-					<img class="ls-logo" id="mlb-away-logo" alt="" aria-hidden="true" decoding="async" />
-					<span class="ls-team-name" id="mlb-away-name">—</span>
-					<span class="ls-score" id="mlb-away-score"></span>
-				</div>
-				<div class="ls-team" id="mlb-home">
-					<img class="ls-logo" id="mlb-home-logo" alt="" aria-hidden="true" decoding="async" />
-					<span class="ls-team-name" id="mlb-home-name">—</span>
-					<span class="ls-score" id="mlb-home-score"></span>
-				</div>
-			</div>
-
-			<p class="ls-status" id="mlb-status">Loading…</p>
 		</a>
 
 		<a
@@ -143,8 +99,7 @@
 			</button>
 			<div class="ls-dots">
 				<button class="ls-dot-btn" type="button" data-index="0" aria-label="Show NBA"></button>
-				<button class="ls-dot-btn" type="button" data-index="1" aria-label="Show MLB"></button>
-				<button class="ls-dot-btn" type="button" data-index="2" aria-label="Show Formula 1"></button>
+				<button class="ls-dot-btn" type="button" data-index="1" aria-label="Show Formula 1"></button>
 			</div>
 			<button class="ls-arrow" id="ls-next" type="button" aria-label="Show next sport">
 				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
@@ -169,7 +124,7 @@
 	type EventState = 'live' | 'upcoming' | 'final';
 
 	type SportEvent = {
-		league: 'NBA' | 'MLB' | 'F1';
+		league: 'NBA' | 'F1';
 		state: EventState;
 		title: string;
 		subtitle: string;
@@ -183,7 +138,6 @@
 
 	type LiveSportsPayload = {
 		nba: SportEvent | null;
-		mlb: SportEvent | null;
 		f1: SportEvent | null;
 		lastUpdated?: string;
 	};
@@ -267,48 +221,36 @@
 			if (node) node.src = url || PLACEHOLDER_LOGO;
 		};
 
-		const renderTeamSport = (
-			league: 'nba' | 'mlb',
-			event: SportEvent | null,
-			emptyName: string,
-			emptyStatus: string
-		) => {
-			const row = pick<HTMLAnchorElement>(`${league}-row`);
-			swap(pick(`${league}-row`), () => {
+		const renderNba = (event: SportEvent | null) => {
+			const row = pick<HTMLAnchorElement>('nba-row');
+			swap(pick('nba-row'), () => {
 				if (!event) {
-					setBadge(`${league}-row`, `${league}-badge-text`, 'empty');
-					setText(`${league}-empty-message`, emptyName);
-					setText(`${league}-away-name`, '');
-					setText(`${league}-home-name`, '');
-					setText(`${league}-away-score`, '');
-					setText(`${league}-home-score`, '');
-					setLogo(`${league}-away-logo`, '');
-					setLogo(`${league}-home-logo`, '');
-					setText(`${league}-status`, emptyStatus);
+					setBadge('nba-row', 'nba-badge-text', 'empty');
+					setText('nba-away-name', 'No NBA games');
+					setText('nba-home-name', '');
+					setText('nba-away-score', '');
+					setText('nba-home-score', '');
+					setLogo('nba-away-logo', '');
+					setLogo('nba-home-logo', '');
+					setText('nba-status', 'Nothing scheduled right now.');
 					return;
 				}
 
 				if (row && event.detailUrl) row.href = event.detailUrl;
-				setBadge(`${league}-row`, `${league}-badge-text`, event.state);
-				setText(`${league}-empty-message`, '');
+				setBadge('nba-row', 'nba-badge-text', event.state);
 
 				const showScore = event.state !== 'upcoming';
 				const away = event.away;
 				const home = event.home;
-				setText(`${league}-away-name`, away?.name ?? 'TBD');
-				setText(`${league}-home-name`, home?.name ?? 'TBD');
-				setText(`${league}-away-score`, showScore ? (away?.score ?? '') : '');
-				setText(`${league}-home-score`, showScore ? (home?.score ?? '') : '');
-				setLogo(`${league}-away-logo`, away?.logo ?? '');
-				setLogo(`${league}-home-logo`, home?.logo ?? '');
-				setText(`${league}-status`, formatDetail(event));
+				setText('nba-away-name', away?.name ?? 'TBD');
+				setText('nba-home-name', home?.name ?? 'TBD');
+				setText('nba-away-score', showScore ? (away?.score ?? '') : '');
+				setText('nba-home-score', showScore ? (home?.score ?? '') : '');
+				setLogo('nba-away-logo', away?.logo ?? '');
+				setLogo('nba-home-logo', home?.logo ?? '');
+				setText('nba-status', formatDetail(event));
 			});
 		};
-
-		const renderNba = (event: SportEvent | null) =>
-			renderTeamSport('nba', event, 'No NBA games', 'Nothing scheduled right now.');
-		const renderMlb = (event: SportEvent | null) =>
-			renderTeamSport('mlb', event, 'No MLB games', 'Nothing scheduled right now.');
 
 		const renderF1 = (event: SportEvent | null) => {
 			const row = pick<HTMLAnchorElement>('f1-row');
@@ -358,10 +300,8 @@
 
 		const setError = () => {
 			setBadge('nba-row', 'nba-badge-text', 'error');
-			setBadge('mlb-row', 'mlb-badge-text', 'error');
 			setBadge('f1-row', 'f1-badge-text', 'error');
 			setText('nba-status', 'Scores unavailable right now.');
-			setText('mlb-status', 'Scores unavailable right now.');
 			setText('f1-status', 'Scores unavailable right now.');
 		};
 
@@ -385,7 +325,6 @@
 				if (!response.ok) throw new Error('live-sports request failed');
 				const payload = (await response.json()) as LiveSportsPayload;
 				renderNba(payload.nba);
-				renderMlb(payload.mlb);
 				renderF1(payload.f1);
 				setUpdated(payload.lastUpdated);
 			} catch {
@@ -395,15 +334,15 @@
 			}
 		};
 
-		// NBA / MLB / F1 carousel: one slide at a time, swap via arrows, dots, or swipe.
+		// NBA / F1 carousel: one slide at a time, swap via arrows, dots, or swipe.
 		const track = pick('ls-track');
 		const viewport = pick('ls-viewport');
 		const dotBtns = Array.from(
 			document.querySelectorAll<HTMLButtonElement>('#live-sports-tile .ls-dot-btn')
 		);
-		const SLIDE_COUNT = 3;
-		// Start on F1 (index 2).
-		let slideIndex = 2;
+		const SLIDE_COUNT = 2;
+		// Start on F1 (index 1).
+		let slideIndex = 1;
 
 		const updateCarousel = (instant = false) => {
 			if (track) {
@@ -659,12 +598,6 @@
 		aspect-ratio: 203 / 460;
 	}
 
-	.ls-league-logo-mlb {
-		height: 1.7rem;
-		width: 1.7rem;
-		aspect-ratio: 1;
-	}
-
 	.ls-league-logo-f1 {
 		height: 1rem;
 		width: calc(1rem * 454 / 114);
@@ -715,24 +648,8 @@
 		border-color: color-mix(in srgb, var(--accent-soft), var(--border) 46%);
 	}
 
-	.ls-empty-message {
-		display: none;
-		margin: 0;
-		font-size: var(--text-sm);
-		color: var(--text);
-	}
-
-	.ls-row[data-state='empty'] .ls-empty-message {
-		display: block;
-	}
-
-	.ls-row[data-state='empty'] .ls-team {
-		display: none;
-	}
-
-	/* NBA and MLB: two stacked team lines. */
-	.ls-nba-body,
-	.ls-mlb-body {
+	/* NBA: two stacked team lines. */
+	.ls-nba-body {
 		display: grid;
 		gap: 0.3rem;
 	}

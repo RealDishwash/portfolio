@@ -9,6 +9,10 @@ const { lastFmPath } = Astro.props;
 ---
 
 <article class="tile media-card listening-tile" id="listening-tile">
+  <div class="media-card-head">
+    <h2>Now Playing</h2>
+    <span class="media-card-state" id="listening-state">Loading</span>
+  </div>
   <div class="media-card-body">
     <a
       class="media-card-art-link"
@@ -26,68 +30,20 @@ const { lastFmPath } = Astro.props;
         decoding="async"
       />
     </a>
-    <div class="media-card-panel">
-      <div class="media-card-head">
-        <div>
-          <span class="media-card-place">Concert Hall</span>
-          <h2>Now Playing</h2>
-        </div>
-      </div>
-      <div class="media-card-content">
-        <div class="media-card-meta" aria-live="polite">
-          <a
-            class="media-card-title"
-            id="listening-track-title"
-            data-listening-link
-            href="https://www.last.fm/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Checking Qobuz...
-          </a>
-          <p class="media-card-subtitle">
-            <span id="listening-artists">Fetching scrobbles from Last.fm.</span>
-            <span class="media-card-time-separator" aria-hidden="true"> · </span>
-            <span class="media-card-time" id="listening-state">Loading</span>
-          </p>
-        </div>
-        <div class="media-card-controls" role="group" aria-label="Music player controls">
-          <button
-            class="media-card-control"
-            type="button"
-            disabled
-            aria-label="Previous track"
-            title="Previous track unavailable"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 5v14M18 6.5 10 12l8 5.5V6.5Z" fill="currentColor"></path>
-            </svg>
-          </button>
-          <button
-            class="media-card-control media-card-control-primary"
-            type="button"
-            disabled
-            aria-label="Play or pause"
-            title="Playback controls unavailable"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path class="control-icon-play" d="m8 5 10 7-10 7V5Z" fill="currentColor"></path>
-              <path class="control-icon-pause" d="M7 5h4v14H7zm6 0h4v14h-4z" fill="currentColor"></path>
-            </svg>
-          </button>
-          <button
-            class="media-card-control"
-            type="button"
-            disabled
-            aria-label="Next track"
-            title="Next track unavailable"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18 5v14M6 6.5l8 5.5-8 5.5V6.5Z" fill="currentColor"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
+    <div class="media-card-meta" aria-live="polite">
+      <a
+        class="media-card-title"
+        id="listening-track-title"
+        data-listening-link
+        href="https://www.last.fm/"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Checking Qobuz...
+      </a>
+      <p class="media-card-subtitle" id="listening-artists">
+        Fetching scrobbles from Last.fm.
+      </p>
     </div>
   </div>
   <span class="media-card-corner-link" aria-hidden="true">
